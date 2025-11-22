@@ -9,6 +9,7 @@ import Signup from './pages/auth/Signup';
 // Rider pages
 import RiderHome from './pages/rider/RiderHome';
 import RiderHistory from './pages/rider/RiderHistory';
+import Profile from './pages/Profile';
 
 // Driver pages
 import DriverHome from './pages/driver/DriverHome';
@@ -86,6 +87,14 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/rider/profile"
+        element={
+          <ProtectedRoute allowedRoles={['rider']}>
+            <Profile />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Driver Routes */}
       <Route
@@ -109,6 +118,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={['driver']}>
             <DriverEarnings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/driver/profile"
+        element={
+          <ProtectedRoute allowedRoles={['driver']}>
+            <Profile />
           </ProtectedRoute>
         }
       />
