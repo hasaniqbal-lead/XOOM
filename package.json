@@ -1,7 +1,7 @@
 {
-  "name": "nawaride",
+  "name": "xoom",
   "version": "1.0.0",
-  "description": "NawaRide - Web-Based Ride-Hailing Platform for Nawa-Lahore",
+  "description": "XOOM - Modern Mobile-First Ride-Hailing Platform",
   "private": true,
   "workspaces": [
     "backend",
@@ -14,7 +14,7 @@
     "build": "npm run build --workspace=frontend && npm run build --workspace=backend",
     "start": "npm run start --workspace=backend"
   },
-  "keywords": ["ride-hailing", "nawaride", "lahore"],
+  "keywords": ["ride-hailing", "xoom", "mobile-app"],
   "author": "",
   "license": "MIT",
   "devDependencies": {

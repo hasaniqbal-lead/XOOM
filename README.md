@@ -1,28 +1,30 @@
-# NawaRide - Ride-Hailing Platform for Nawa-Lahore
+# XOOM - Ride-Hailing Platform
 
-A lightweight, web-based ride-hailing application designed for small towns in Punjab, Pakistan.
+A modern, mobile-first ride-hailing application with beautiful UI and real-time features.
 
 ## Features
 
-- **Rider App**: Request rides, track drivers, view history
-- **Driver App**: Accept rides, navigate, earn points, track targets
+- **Rider App**: Request rides, track drivers, view history with stunning mobile UI
+- **Driver App**: Accept rides, navigate, manage earnings with radius control
 - **Admin Dashboard**: Manage users, fares, verify drivers, control system
 - **Real-time Updates**: WebSocket-based ride matching and tracking
-- **PWA Support**: Installable web app for mobile experience
-- **Maps Integration**: Leaflet.js with OpenStreetMap
+- **PWA Support**: Installable web app for native mobile experience
+- **Maps Integration**: Leaflet.js with OpenStreetMap (100% Free)
 
 ## Tech Stack
 
 ### Frontend
-- React 18 + Vite
+- React 18 + TypeScript
+- Vite Build Tool
+- Shadcn UI Components
 - TailwindCSS
 - Socket.IO Client
-- Leaflet.js
+- Leaflet.js for Maps
 - PWA Support
 
 ### Backend
 - Node.js + Express
-- Socket.IO
+- Socket.IO (Real-time)
 - PostgreSQL + PostGIS
 - JWT Authentication
 - Bcrypt
@@ -30,9 +32,9 @@ A lightweight, web-based ride-hailing application designed for small towns in Pu
 ## Project Structure
 
 ```
-nawaride/
+xoom/
 ├── backend/          # Node.js API server
-├── frontend/         # React PWA
+├── frontend/         # React + TypeScript PWA
 ├── docs/            # Documentation
 └── package.json     # Root workspace config
 ```

@@ -114,7 +114,7 @@ const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
   console.log('╔═══════════════════════════════════════════╗');
-  console.log('║        NawaRide Backend Server            ║');
+  console.log('║          XOOM Backend Server              ║');
   console.log('╚═══════════════════════════════════════════╝');
   console.log(`\n✓ Server running on port ${PORT}`);
   console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);

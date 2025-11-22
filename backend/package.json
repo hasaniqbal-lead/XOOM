@@ -1,7 +1,7 @@
 {
-  "name": "nawaride-backend",
+  "name": "xoom-backend",
   "version": "1.0.0",
-  "description": "NawaRide Backend API Server",
+  "description": "XOOM Backend API Server",
   "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",
