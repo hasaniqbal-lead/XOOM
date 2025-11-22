@@ -1,4 +1,4 @@
--- NawaRide Database Schema
+-- XOOM Database Schema
 
 -- Users Table (Riders, Drivers, Admins)
 CREATE TABLE IF NOT EXISTS users (
