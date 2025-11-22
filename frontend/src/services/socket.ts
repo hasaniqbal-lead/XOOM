@@ -46,21 +46,21 @@ class SocketService {
   }
 
   // Emit events
-  emit(event: string, data?: any) {
+  emit(event: string, data?: unknown) {
     if (this.socket) {
       this.socket.emit(event, data);
     }
   }
 
   // Listen to events
-  on(event: string, callback: (...args: any[]) => void) {
+  on(event: string, callback: (...args: unknown[]) => void) {
     if (this.socket) {
       this.socket.on(event, callback);
     }
   }
 
   // Remove event listener
-  off(event: string, callback?: (...args: any[]) => void) {
+  off(event: string, callback?: (...args: unknown[]) => void) {
     if (this.socket) {
       this.socket.off(event, callback);
     }
@@ -72,7 +72,7 @@ class SocketService {
   }
 
   // Rider-specific methods
-  requestRide(rideData: any) {
+  requestRide(rideData: unknown) {
     this.emit("request_ride", rideData);
   }
 }

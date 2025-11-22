@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { authAPI } from "@/services/api";
 import socketService from "@/services/socket";
 import { toast } from "sonner";
+import { AxiosError } from "axios";
 
 interface User {
   id: number;
@@ -10,6 +11,10 @@ interface User {
   role: "rider" | "driver" | "admin";
   is_verified: boolean;
   average_rating: number;
+}
+
+interface ErrorResponse {
+  error?: string;
 }
 
 interface AuthContextType {
@@ -69,8 +74,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       socketService.connect(newToken);
 
       toast.success(`Welcome back, ${newUser.name}!`);
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || "Login failed");
+    } catch (error) {
+      const err = error as AxiosError<ErrorResponse>;
+      toast.error(err.response?.data?.error || "Login failed");
       throw error;
     }
   };
@@ -89,8 +95,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       socketService.connect(newToken);
 
       toast.success(`Welcome to XOOM, ${newUser.name}!`);
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || "Signup failed");
+    } catch (error) {
+      const err = error as AxiosError<ErrorResponse>;
+      toast.error(err.response?.data?.error || "Signup failed");
       throw error;
     }
   };

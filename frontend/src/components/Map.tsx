@@ -1,13 +1,16 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 
 // Fix Leaflet default marker icon issue with Vite
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+// Fix Leaflet icon paths with proper typing
+interface LeafletIconDefault extends L.Icon.Default {
+  _getIconUrl?: () => void;
+}
+delete (L.Icon.Default.prototype as LeafletIconDefault)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconUrl: markerIcon,
   iconRetinaUrl: markerIcon2x,
@@ -36,6 +39,12 @@ const Map = ({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
+  const onMapClickRef = useRef(onMapClick);
+
+  // Keep callback ref updated
+  useEffect(() => {
+    onMapClickRef.current = onMapClick;
+  }, [onMapClick]);
 
   // Initialize map
   useEffect(() => {
@@ -52,11 +61,9 @@ const Map = ({
     }).addTo(map);
 
     // Add click handler
-    if (onMapClick) {
-      map.on("click", (e) => {
-        onMapClick(e.latlng);
-      });
-    }
+    map.on("click", (e) => {
+      onMapClickRef.current?.(e.latlng);
+    });
 
     mapInstanceRef.current = map;
 
@@ -66,7 +73,7 @@ const Map = ({
         mapInstanceRef.current = null;
       }
     };
-  }, []);
+  }, [center, zoom]);
 
   // Update center when it changes
   useEffect(() => {
