@@ -18,6 +18,7 @@ const adminRoutes = require('./routes/admin');
 const announcementRoutes = require('./routes/announcements');
 const reviewRoutes = require('./routes/reviews');
 const notificationRoutes = require('./routes/notifications');
+const mapsRoutes = require('./routes/maps');
 
 const app = express();
 const server = http.createServer(app);
@@ -86,6 +87,7 @@ app.use('/admin', adminRoutes);
 app.use('/announcements', announcementRoutes);
 app.use('/reviews', reviewRoutes);
 app.use('/notifications', notificationRoutes);
+app.use('/maps', mapsRoutes);
 
 // 404 handler
 app.use((req, res) => {
