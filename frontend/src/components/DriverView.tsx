@@ -9,6 +9,7 @@ import { ridesAPI } from "@/services/api";
 import { useSocket } from "@/contexts/SocketContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { geocodingService } from "@/services/geocoding";
 
 interface RideRequest {
   id: string;
@@ -36,6 +37,8 @@ const DriverView = () => {
 
   // Map state
   const [currentLocation, setCurrentLocation] = useState<[number, number]>([31.5204, 74.3587]);
+  const [routeToPickup, setRouteToPickup] = useState<Array<[number, number]> | null>(null);
+  const [etaToPickup, setEtaToPickup] = useState<number | null>(null);
 
   const { socket } = useSocket();
   const { user } = useAuth();
@@ -95,6 +98,34 @@ const DriverView = () => {
       socket.off("ride_cancelled");
     };
   }, [socket, acceptedRide]);
+
+  // Fetch route to pickup when ride is accepted
+  useEffect(() => {
+    if (acceptedRide && currentLocation) {
+      fetchRouteToPickup();
+    } else {
+      setRouteToPickup(null);
+      setEtaToPickup(null);
+    }
+  }, [acceptedRide, currentLocation]);
+
+  const fetchRouteToPickup = async () => {
+    if (!acceptedRide || !currentLocation) return;
+
+    try {
+      const route = await geocodingService.getRoute([
+        { lat: currentLocation[0], lng: currentLocation[1] },
+        { lat: acceptedRide.pickup_lat, lng: acceptedRide.pickup_lng },
+      ]);
+
+      setRouteToPickup(route.geometry);
+      setEtaToPickup(Math.round(route.duration / 60)); // seconds to minutes
+    } catch (error) {
+      console.error('Route fetch error:', error);
+      setRouteToPickup(null);
+      setEtaToPickup(null);
+    }
+  };
 
   const handleAccept = async (request: RideRequest) => {
     try {
@@ -168,6 +199,8 @@ const DriverView = () => {
           center={currentLocation}
           zoom={14}
           markers={markers}
+          route={routeToPickup || undefined}
+          routeColor="#10b981"
           className="w-full h-full"
         />
 
@@ -231,7 +264,15 @@ const DriverView = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-primary">₹ {acceptedRide.estimated_fare}</p>
-                  <p className="text-xs text-muted-foreground">{acceptedRide.distance_km.toFixed(1)} km</p>
+                  <div className="flex items-center gap-2 justify-end">
+                    {etaToPickup && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="w-3 h-3" />
+                        <span>{etaToPickup} min</span>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">{acceptedRide.distance_km.toFixed(1)} km</p>
+                  </div>
                 </div>
               </div>
 

@@ -25,6 +25,8 @@ interface MapProps {
     type: "pickup" | "dropoff" | "driver";
     label?: string;
   }>;
+  route?: Array<[number, number]>; // Route geometry as [lng, lat] pairs
+  routeColor?: string;
   onMapClick?: (latlng: { lat: number; lng: number }) => void;
   className?: string;
 }
@@ -33,12 +35,15 @@ const Map = ({
   center,
   zoom = 13,
   markers = [],
+  route,
+  routeColor = "#3b82f6",
   onMapClick,
   className = "",
 }: MapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
+  const routeLayerRef = useRef<L.Polyline | null>(null);
   const onMapClickRef = useRef(onMapClick);
 
   // Keep callback ref updated
@@ -144,6 +149,38 @@ const Map = ({
       mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50] });
     }
   }, [markers]);
+
+  // Update route
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+
+    // Remove old route
+    if (routeLayerRef.current) {
+      routeLayerRef.current.remove();
+      routeLayerRef.current = null;
+    }
+
+    // Add new route
+    if (route && route.length > 0) {
+      // Convert from [lng, lat] to [lat, lng] for Leaflet
+      const latLngs: L.LatLngExpression[] = route.map(coord => [coord[1], coord[0]]);
+
+      const polyline = L.polyline(latLngs, {
+        color: routeColor,
+        weight: 5,
+        opacity: 0.8,
+        lineJoin: 'round',
+        lineCap: 'round',
+      }).addTo(mapInstanceRef.current);
+
+      routeLayerRef.current = polyline;
+
+      // Fit bounds to show entire route
+      if (markers.length === 0) {
+        mapInstanceRef.current.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+      }
+    }
+  }, [route, routeColor, markers.length]);
 
   return <div ref={mapRef} className={`w-full h-full ${className}`} />;
 };

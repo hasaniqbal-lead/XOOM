@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
 import { MapPin, Users, Navigation, Clock, Share2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import LocationInput from "./LocationInput";
+import AddressSearch from "./AddressSearch";
 import VehicleSelector from "./VehicleSelector";
 import PassengerCounter from "./PassengerCounter";
 import Map from "./Map";
 import { ridesAPI } from "@/services/api";
 import { useSocket } from "@/contexts/SocketContext";
 import { toast } from "sonner";
+import { geocodingService } from "@/services/geocoding";
 
 const RiderView = () => {
   const [pickupLocation, setPickupLocation] = useState("");
@@ -21,11 +21,13 @@ const RiderView = () => {
   const [showShared, setShowShared] = useState(false);
   const [loading, setLoading] = useState(false);
   const [estimatedFare, setEstimatedFare] = useState<number | null>(null);
+  const [estimatedDuration, setEstimatedDuration] = useState<number | null>(null);
 
   // Map state
   const [currentLocation, setCurrentLocation] = useState<[number, number]>([31.5204, 74.3587]); // Default: Lahore
   const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(null);
   const [dropCoords, setDropCoords] = useState<[number, number] | null>(null);
+  const [routeGeometry, setRouteGeometry] = useState<Array<[number, number]> | null>(null);
 
   const { socket } = useSocket();
 
@@ -43,27 +45,55 @@ const RiderView = () => {
     }
   }, []);
 
-  // Calculate fare when pickup and drop locations are set
+  // Fetch route and calculate fare when pickup and drop locations are set
   useEffect(() => {
     if (pickupCoords && dropCoords) {
+      fetchRoute();
+    } else {
+      setEstimatedFare(null);
+      setEstimatedDuration(null);
+      setRouteGeometry(null);
+    }
+  }, [pickupCoords, dropCoords]);
+
+  const fetchRoute = async () => {
+    if (!pickupCoords || !dropCoords) return;
+
+    try {
+      const route = await geocodingService.getRoute([
+        { lat: pickupCoords[0], lng: pickupCoords[1] },
+        { lat: dropCoords[0], lng: dropCoords[1] },
+      ]);
+
+      // Set route geometry for map
+      setRouteGeometry(route.geometry);
+
+      // Calculate fare using actual route distance
+      const distanceKm = route.distance / 1000; // meters to km
+      const baseFare = 50;
+      const perKm = 15;
+      const minimumFare = 80;
+      const fare = Math.max(baseFare + distanceKm * perKm, minimumFare);
+
+      setEstimatedFare(Math.round(fare));
+      setEstimatedDuration(Math.round(route.duration / 60)); // seconds to minutes
+    } catch (error) {
+      console.error('Route fetch error:', error);
+      // Fallback to Haversine distance if route fails
       const distance = calculateDistance(
         pickupCoords[0],
         pickupCoords[1],
         dropCoords[0],
         dropCoords[1]
       );
-
-      // Fare calculation (matches backend formula)
       const baseFare = 50;
       const perKm = 15;
       const minimumFare = 80;
       const fare = Math.max(baseFare + distance * perKm, minimumFare);
-
       setEstimatedFare(Math.round(fare));
-    } else {
-      setEstimatedFare(null);
+      setRouteGeometry(null);
     }
-  }, [pickupCoords, dropCoords]);
+  };
 
   // Socket.IO listeners
   useEffect(() => {
@@ -162,15 +192,24 @@ const RiderView = () => {
     markers.push({ position: dropCoords, type: "dropoff" as const, label: "Drop Location" });
   }
 
-  const handleMapClick = (latlng: { lat: number; lng: number }) => {
-    // Set pickup first, then drop
-    if (!pickupCoords) {
-      setPickupCoords([latlng.lat, latlng.lng]);
-      setPickupLocation(`${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`);
-    } else if (!dropCoords) {
-      setDropCoords([latlng.lat, latlng.lng]);
-      setDropLocation(`${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`);
-    }
+  const handlePickupSelect = (result: {
+    address: string;
+    lat: number;
+    lng: number;
+    display_name: string;
+  }) => {
+    setPickupLocation(result.display_name);
+    setPickupCoords([result.lat, result.lng]);
+  };
+
+  const handleDropSelect = (result: {
+    address: string;
+    lat: number;
+    lng: number;
+    display_name: string;
+  }) => {
+    setDropLocation(result.display_name);
+    setDropCoords([result.lat, result.lng]);
   };
 
   return (
@@ -181,7 +220,8 @@ const RiderView = () => {
           center={currentLocation}
           zoom={13}
           markers={markers}
-          onMapClick={handleMapClick}
+          route={routeGeometry || undefined}
+          routeColor="#3b82f6"
           className="w-full h-full"
         />
 
@@ -215,17 +255,19 @@ const RiderView = () => {
         <div className="px-4 py-6 space-y-4">
           {/* Location Inputs */}
           <div className="space-y-3">
-            <LocationInput
+            <AddressSearch
               icon={<Navigation className="w-5 h-5 text-primary" />}
-              placeholder="Pickup location"
+              placeholder="Search pickup location"
               value={pickupLocation}
-              onChange={setPickupLocation}
+              onSelect={handlePickupSelect}
+              userLocation={currentLocation ? { lat: currentLocation[0], lng: currentLocation[1] } : undefined}
             />
-            <LocationInput
+            <AddressSearch
               icon={<MapPin className="w-5 h-5 text-destructive" />}
-              placeholder="Drop location"
+              placeholder="Search drop location"
               value={dropLocation}
-              onChange={setDropLocation}
+              onSelect={handleDropSelect}
+              userLocation={currentLocation ? { lat: currentLocation[0], lng: currentLocation[1] } : undefined}
             />
           </div>
 
@@ -251,9 +293,20 @@ const RiderView = () => {
                     ₹ {estimatedFare}
                   </p>
                 </div>
-                <Badge variant="secondary" className="text-xs">
-                  {pickupCoords && dropCoords ? `~${Math.round(calculateDistance(pickupCoords[0], pickupCoords[1], dropCoords[0], dropCoords[1]))} km` : "---"}
-                </Badge>
+                <div className="text-right">
+                  {estimatedDuration && (
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground mb-1">
+                      <Clock className="w-4 h-4" />
+                      <span>~{estimatedDuration} mins</span>
+                    </div>
+                  )}
+                  <Badge variant="secondary" className="text-xs">
+                    {pickupCoords && dropCoords && routeGeometry ?
+                      `~${Math.round(calculateDistance(pickupCoords[0], pickupCoords[1], dropCoords[0], dropCoords[1]))} km` :
+                      "Calculating..."
+                    }
+                  </Badge>
+                </div>
               </div>
             </Card>
           )}
