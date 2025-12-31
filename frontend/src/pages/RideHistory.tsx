@@ -153,7 +153,7 @@ const RideHistory = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-bold text-primary">
-                    ₹ {ride.final_fare || ride.estimated_fare}
+                    PKR {ride.final_fare || ride.estimated_fare}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {ride.distance_km.toFixed(1)} km

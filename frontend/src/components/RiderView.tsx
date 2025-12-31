@@ -464,7 +464,7 @@ const RiderView = () => {
                 <div>
                   <p className="text-muted-foreground text-sm">Estimated Fare</p>
                   <p className="font-display text-2xl font-bold text-primary">
-                    ₹ {estimatedFare}
+                    PKR {estimatedFare}
                   </p>
                 </div>
                 <div className="text-right">

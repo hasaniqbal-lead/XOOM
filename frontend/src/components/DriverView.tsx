@@ -360,7 +360,7 @@ const DriverView = () => {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xl font-bold text-primary">₹ {request.estimated_fare}</p>
+                      <p className="text-xl font-bold text-primary">PKR {request.estimated_fare}</p>
                       <p className="text-xs text-muted-foreground">{request.distance_km.toFixed(1)} km</p>
                     </div>
                   </div>

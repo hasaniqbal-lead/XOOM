@@ -2,13 +2,28 @@ const express = require('express');
 const router = express.Router();
 const mapService = require('../services/MapService');
 const { authMiddleware } = require('../middleware/auth');
+const rateLimit = require('express-rate-limit');
+
+// Rate limiter for public map APIs (by IP, not user)
+// This prevents abuse while keeping maps accessible to non-authenticated users
+const mapLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per 15 minutes per IP
+  message: 'Too many map requests, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiting to all map routes
+router.use(mapLimiter);
 
 /**
  * Geocode: Convert address to coordinates
  * POST /api/maps/geocode
  * Body: { address: string, provider?: string }
+ * PUBLIC - No authentication required (uses OpenStreetMap)
  */
-router.post('/geocode', authMiddleware, async (req, res) => {
+router.post('/geocode', async (req, res) => {
   try {
     const { address, provider } = req.body;
 
@@ -28,8 +43,9 @@ router.post('/geocode', authMiddleware, async (req, res) => {
  * Reverse Geocode: Convert coordinates to address
  * POST /api/maps/reverse-geocode
  * Body: { lat: number, lng: number, provider?: string }
+ * PUBLIC - No authentication required
  */
-router.post('/reverse-geocode', authMiddleware, async (req, res) => {
+router.post('/reverse-geocode', async (req, res) => {
   try {
     const { lat, lng, provider } = req.body;
 
@@ -49,8 +65,9 @@ router.post('/reverse-geocode', authMiddleware, async (req, res) => {
  * Autocomplete: Get address suggestions
  * GET /api/maps/autocomplete
  * Query: { query: string, lat?: number, lng?: number, limit?: number, provider?: string }
+ * PUBLIC - No authentication required
  */
-router.get('/autocomplete', authMiddleware, async (req, res) => {
+router.get('/autocomplete', async (req, res) => {
   try {
     const { query, lat, lng, limit, provider } = req.query;
 
@@ -79,8 +96,9 @@ router.get('/autocomplete', authMiddleware, async (req, res) => {
  * Get Route: Calculate route between waypoints
  * POST /api/maps/route
  * Body: { waypoints: [{lat, lng}], provider?: string }
+ * PUBLIC - No authentication required
  */
-router.post('/route', authMiddleware, async (req, res) => {
+router.post('/route', async (req, res) => {
   try {
     const { waypoints, provider } = req.body;
 
@@ -100,8 +118,9 @@ router.post('/route', authMiddleware, async (req, res) => {
  * Distance Matrix: Calculate distances between multiple points
  * POST /api/maps/distance-matrix
  * Body: { origins: [{lat, lng}], destinations: [{lat, lng}], provider?: string }
+ * PUBLIC - No authentication required
  */
-router.post('/distance-matrix', authMiddleware, async (req, res) => {
+router.post('/distance-matrix', async (req, res) => {
   try {
     const { origins, destinations, provider } = req.body;
 
@@ -120,6 +139,7 @@ router.post('/distance-matrix', authMiddleware, async (req, res) => {
 /**
  * Get Provider Info: Get information about all available providers
  * GET /api/maps/providers
+ * PROTECTED - Requires authentication (analytics/monitoring)
  */
 router.get('/providers', authMiddleware, async (req, res) => {
   try {
@@ -134,6 +154,7 @@ router.get('/providers', authMiddleware, async (req, res) => {
 /**
  * Check Provider Health: Check health of all providers
  * GET /api/maps/providers/health
+ * PROTECTED - Requires authentication (analytics/monitoring)
  */
 router.get('/providers/health', authMiddleware, async (req, res) => {
   try {
