@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MapPin, Users, Navigation, Clock, Share2, Loader2 } from "lucide-react";
+import { MapPin, Users, Navigation, Clock, Share2, Loader2, Target, Home as HomeIcon, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { ridesAPI } from "@/services/api";
 import { useSocket } from "@/contexts/SocketContext";
 import { toast } from "sonner";
 import { geocodingService } from "@/services/geocoding";
+import { locationHistoryService, SavedLocation } from "@/services/locationHistory";
 
 const RiderView = () => {
   const [pickupLocation, setPickupLocation] = useState("");
@@ -29,6 +30,15 @@ const RiderView = () => {
   const [dropCoords, setDropCoords] = useState<[number, number] | null>(null);
   const [routeGeometry, setRouteGeometry] = useState<Array<[number, number]> | null>(null);
 
+  // Location features state
+  const [isUsingCurrentLocation, setIsUsingCurrentLocation] = useState(false);
+  const [savedLocations, setSavedLocations] = useState<{
+    home: SavedLocation | null;
+    work: SavedLocation | null;
+    recent: SavedLocation[];
+  }>({ home: null, work: null, recent: [] });
+  const [showLocationOptions, setShowLocationOptions] = useState<'pickup' | 'drop' | null>(null);
+
   const { socket } = useSocket();
 
   // Get user's current location
@@ -43,6 +53,15 @@ const RiderView = () => {
         }
       );
     }
+  }, []);
+
+  // Load saved locations
+  useEffect(() => {
+    setSavedLocations({
+      home: locationHistoryService.getHome(),
+      work: locationHistoryService.getWork(),
+      recent: locationHistoryService.getRecent(),
+    });
   }, []);
 
   // Fetch route and calculate fare when pickup and drop locations are set
@@ -183,6 +202,111 @@ const RiderView = () => {
     }
   };
 
+  // Handle map click to set location
+  const handleMapClick = async (latlng: { lat: number; lng: number }) => {
+    try {
+      setLoading(true);
+      const result = await geocodingService.reverseGeocode(latlng.lat, latlng.lng);
+      
+      if (!pickupCoords) {
+        // Set as pickup
+        setPickupLocation(result.display_name);
+        setPickupCoords([latlng.lat, latlng.lng]);
+        toast.success("Pickup location set");
+      } else if (!dropCoords) {
+        // Set as drop
+        setDropLocation(result.display_name);
+        setDropCoords([latlng.lat, latlng.lng]);
+        toast.success("Drop location set");
+        
+        // Save to recent
+        locationHistoryService.save({
+          type: 'recent',
+          name: result.display_name,
+          address: result.display_name,
+          lat: latlng.lat,
+          lng: latlng.lng,
+        });
+      }
+    } catch (error) {
+      toast.error("Could not get address for this location");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle marker drag
+  const handleMarkerDrag = async (type: "pickup" | "dropoff", latlng: { lat: number; lng: number }) => {
+    try {
+      const result = await geocodingService.reverseGeocode(latlng.lat, latlng.lng);
+      
+      if (type === "pickup") {
+        setPickupLocation(result.display_name);
+        setPickupCoords([latlng.lat, latlng.lng]);
+        toast.success("Pickup location updated");
+      } else {
+        setDropLocation(result.display_name);
+        setDropCoords([latlng.lat, latlng.lng]);
+        toast.success("Drop location updated");
+      }
+    } catch (error) {
+      toast.error("Could not update address");
+    }
+  };
+
+  // Use current GPS location
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+
+    setIsUsingCurrentLocation(true);
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        
+        try {
+          const result = await geocodingService.reverseGeocode(latitude, longitude);
+          
+          if (showLocationOptions === 'pickup') {
+            setPickupLocation(result.display_name);
+            setPickupCoords([latitude, longitude]);
+          } else {
+            setDropLocation(result.display_name);
+            setDropCoords([latitude, longitude]);
+          }
+          
+          setCurrentLocation([latitude, longitude]);
+          toast.success("Current location set");
+        } catch (error) {
+          toast.error("Could not get address");
+        } finally {
+          setIsUsingCurrentLocation(false);
+          setShowLocationOptions(null);
+        }
+      },
+      (error) => {
+        toast.error("Could not get your location");
+        setIsUsingCurrentLocation(false);
+        setShowLocationOptions(null);
+      }
+    );
+  };
+
+  // Handle saved location selection
+  const handleSavedLocationSelect = (location: SavedLocation, type: 'pickup' | 'drop') => {
+    if (type === 'pickup') {
+      setPickupLocation(location.address);
+      setPickupCoords([location.lat, location.lng]);
+    } else {
+      setDropLocation(location.address);
+      setDropCoords([location.lat, location.lng]);
+    }
+    setShowLocationOptions(null);
+  };
+
   // Prepare markers for the map
   const markers = [];
   if (pickupCoords) {
@@ -219,14 +343,19 @@ const RiderView = () => {
         <Map
           center={currentLocation}
           zoom={13}
-          markers={markers}
+          markers={markers.map(m => ({
+            ...m,
+            draggable: true,
+          }))}
           route={routeGeometry || undefined}
           routeColor="#3b82f6"
           className="w-full h-full"
+          onMapClick={handleMapClick}
+          onMarkerDrag={handleMarkerDrag}
         />
 
         {/* Top Bar */}
-        <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-background/80 to-transparent z-[1000]">
+        <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-background/80 to-transparent z-[100]">
           <div className="flex gap-2">
             <Button
               variant={showSchedule ? "default" : "secondary"}
@@ -253,6 +382,51 @@ const RiderView = () => {
       {/* Booking Panel */}
       <div className="animate-slide-up">
         <div className="px-4 py-6 space-y-4">
+          {/* Quick Location Actions */}
+          <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-hide">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowLocationOptions('pickup');
+                handleUseCurrentLocation();
+              }}
+              disabled={isUsingCurrentLocation}
+              className="flex items-center gap-2 whitespace-nowrap"
+            >
+              {isUsingCurrentLocation ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Target className="w-4 h-4" />
+              )}
+              Current Location
+            </Button>
+            
+            {savedLocations.home && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleSavedLocationSelect(savedLocations.home!, 'pickup')}
+                className="flex items-center gap-2 whitespace-nowrap"
+              >
+                <HomeIcon className="w-4 h-4" />
+                Home
+              </Button>
+            )}
+            
+            {savedLocations.work && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleSavedLocationSelect(savedLocations.work!, 'pickup')}
+                className="flex items-center gap-2 whitespace-nowrap"
+              >
+                <Briefcase className="w-4 h-4" />
+                Work
+              </Button>
+            )}
+          </div>
+
           {/* Location Inputs */}
           <div className="space-y-3">
             <AddressSearch

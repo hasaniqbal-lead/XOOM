@@ -43,9 +43,9 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="mobile-app-container min-h-screen-mobile">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border">
+      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border safe-top">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <h1 className="font-display text-2xl font-bold">
@@ -57,7 +57,7 @@ const Index = () => {
               <ModeToggle mode={mode} onModeChange={setMode} />
               <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon">
+                  <Button variant="ghost" size="icon" className="touch-target">
                     <Menu className="w-5 h-5" />
                   </Button>
                 </SheetTrigger>

@@ -27,6 +27,8 @@ const server = http.createServer(app);
 const corsOptions = {
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:5173',
+    'http://localhost:8080',
+    'http://localhost:8081',
     process.env.ADMIN_URL || 'http://localhost:5174'
   ],
   credentials: true

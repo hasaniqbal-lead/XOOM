@@ -35,12 +35,12 @@ const DriverRegistration = ({ onBack }: DriverRegistrationProps) => {
   };
 
   return (
-    <div className="min-h-screen xoom-bg p-4">
+    <div className="mobile-app-container min-h-screen-mobile xoom-bg p-4 safe-top">
       <div className="max-w-2xl mx-auto">
         <Button
           variant="ghost"
           onClick={onBack}
-          className="mb-6"
+          className="mb-6 touch-target"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back

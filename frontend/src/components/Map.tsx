@@ -24,10 +24,12 @@ interface MapProps {
     position: [number, number];
     type: "pickup" | "dropoff" | "driver";
     label?: string;
+    draggable?: boolean;
   }>;
   route?: Array<[number, number]>; // Route geometry as [lng, lat] pairs
   routeColor?: string;
   onMapClick?: (latlng: { lat: number; lng: number }) => void;
+  onMarkerDrag?: (type: "pickup" | "dropoff", latlng: { lat: number; lng: number }) => void;
   className?: string;
 }
 
@@ -38,6 +40,7 @@ const Map = ({
   route,
   routeColor = "#3b82f6",
   onMapClick,
+  onMarkerDrag,
   className = "",
 }: MapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -45,11 +48,13 @@ const Map = ({
   const markersRef = useRef<L.Marker[]>([]);
   const routeLayerRef = useRef<L.Polyline | null>(null);
   const onMapClickRef = useRef(onMapClick);
+  const onMarkerDragRef = useRef(onMarkerDrag);
 
-  // Keep callback ref updated
+  // Keep callback refs updated
   useEffect(() => {
     onMapClickRef.current = onMapClick;
-  }, [onMapClick]);
+    onMarkerDragRef.current = onMarkerDrag;
+  }, [onMapClick, onMarkerDrag]);
 
   // Initialize map
   useEffect(() => {
@@ -132,12 +137,23 @@ const Map = ({
         iconAnchor: [16, 32],
       });
 
-      const marker = L.marker(markerData.position, { icon: customIcon }).addTo(
+      const marker = L.marker(markerData.position, { 
+        icon: customIcon,
+        draggable: markerData.draggable || false,
+      }).addTo(
         mapInstanceRef.current!
       );
 
       if (markerData.label) {
         marker.bindPopup(markerData.label);
+      }
+
+      // Add drag event handler
+      if (markerData.draggable) {
+        marker.on('dragend', (e) => {
+          const position = e.target.getLatLng();
+          onMarkerDragRef.current?.(markerData.type, position);
+        });
       }
 
       markersRef.current.push(marker);

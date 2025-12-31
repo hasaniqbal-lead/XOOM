@@ -1,14 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const mapService = require('../services/MapService');
-const { authenticateToken } = require('../middleware/auth');
+const { authMiddleware } = require('../middleware/auth');
 
 /**
  * Geocode: Convert address to coordinates
  * POST /api/maps/geocode
  * Body: { address: string, provider?: string }
  */
-router.post('/geocode', authenticateToken, async (req, res) => {
+router.post('/geocode', authMiddleware, async (req, res) => {
   try {
     const { address, provider } = req.body;
 
@@ -29,7 +29,7 @@ router.post('/geocode', authenticateToken, async (req, res) => {
  * POST /api/maps/reverse-geocode
  * Body: { lat: number, lng: number, provider?: string }
  */
-router.post('/reverse-geocode', authenticateToken, async (req, res) => {
+router.post('/reverse-geocode', authMiddleware, async (req, res) => {
   try {
     const { lat, lng, provider } = req.body;
 
@@ -50,7 +50,7 @@ router.post('/reverse-geocode', authenticateToken, async (req, res) => {
  * GET /api/maps/autocomplete
  * Query: { query: string, lat?: number, lng?: number, limit?: number, provider?: string }
  */
-router.get('/autocomplete', authenticateToken, async (req, res) => {
+router.get('/autocomplete', authMiddleware, async (req, res) => {
   try {
     const { query, lat, lng, limit, provider } = req.query;
 
@@ -80,7 +80,7 @@ router.get('/autocomplete', authenticateToken, async (req, res) => {
  * POST /api/maps/route
  * Body: { waypoints: [{lat, lng}], provider?: string }
  */
-router.post('/route', authenticateToken, async (req, res) => {
+router.post('/route', authMiddleware, async (req, res) => {
   try {
     const { waypoints, provider } = req.body;
 
@@ -101,7 +101,7 @@ router.post('/route', authenticateToken, async (req, res) => {
  * POST /api/maps/distance-matrix
  * Body: { origins: [{lat, lng}], destinations: [{lat, lng}], provider?: string }
  */
-router.post('/distance-matrix', authenticateToken, async (req, res) => {
+router.post('/distance-matrix', authMiddleware, async (req, res) => {
   try {
     const { origins, destinations, provider } = req.body;
 
@@ -121,7 +121,7 @@ router.post('/distance-matrix', authenticateToken, async (req, res) => {
  * Get Provider Info: Get information about all available providers
  * GET /api/maps/providers
  */
-router.get('/providers', authenticateToken, async (req, res) => {
+router.get('/providers', authMiddleware, async (req, res) => {
   try {
     const providers = mapService.getProvidersInfo();
     res.json(providers);
@@ -135,7 +135,7 @@ router.get('/providers', authenticateToken, async (req, res) => {
  * Check Provider Health: Check health of all providers
  * GET /api/maps/providers/health
  */
-router.get('/providers/health', authenticateToken, async (req, res) => {
+router.get('/providers/health', authMiddleware, async (req, res) => {
   try {
     const health = await mapService.checkProvidersHealth();
     res.json(health);
