@@ -25,12 +25,14 @@ interface MapProps {
     type: "pickup" | "dropoff" | "driver";
     label?: string;
     draggable?: boolean;
+    onClick?: () => void;
   }>;
   route?: Array<[number, number]>; // Route geometry as [lng, lat] pairs
   routeColor?: string;
   onMapClick?: (latlng: { lat: number; lng: number }) => void;
   onMarkerDrag?: (type: "pickup" | "dropoff", latlng: { lat: number; lng: number }) => void;
   className?: string;
+  pinMode?: boolean;
 }
 
 const Map = ({
@@ -42,6 +44,7 @@ const Map = ({
   onMapClick,
   onMarkerDrag,
   className = "",
+  pinMode = false,
 }: MapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -75,6 +78,11 @@ const Map = ({
       onMapClickRef.current?.(e.latlng);
     });
 
+    // Change cursor when in pin mode
+    if (pinMode) {
+      map.getContainer().style.cursor = 'crosshair';
+    }
+
     mapInstanceRef.current = map;
 
     return () => {
@@ -92,6 +100,14 @@ const Map = ({
     }
   }, [center]);
 
+  // Update cursor based on pinMode
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      const container = mapInstanceRef.current.getContainer();
+      container.style.cursor = pinMode ? 'crosshair' : '';
+    }
+  }, [pinMode]);
+
   // Update markers
   useEffect(() => {
     if (!mapInstanceRef.current) return;
@@ -107,18 +123,29 @@ const Map = ({
         markerData.type === "dropoff" ? "#ef4444" :
         "#3b82f6";
 
-      // Create custom icon
+      // Create custom icon with pulsing animation
+      const pulseAnimation = markerData.draggable ? `
+        @keyframes pulse {
+          0% { box-shadow: 0 0 0 0 ${iconColor}aa; }
+          70% { box-shadow: 0 0 0 10px ${iconColor}00; }
+          100% { box-shadow: 0 0 0 0 ${iconColor}00; }
+        }
+      ` : '';
+      
       const customIcon = L.divIcon({
         className: "custom-marker",
         html: `
+          <style>${pulseAnimation}</style>
           <div style="
             background: ${iconColor};
-            width: 32px;
-            height: 32px;
+            width: 36px;
+            height: 36px;
             border-radius: 50% 50% 50% 0;
             transform: rotate(-45deg);
             border: 3px solid white;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            animation: ${markerData.draggable ? 'pulse 2s infinite' : 'none'};
+            transition: all 0.3s ease;
           ">
             <div style="
               width: 100%;
@@ -128,13 +155,13 @@ const Map = ({
               justify-content: center;
               transform: rotate(45deg);
               color: white;
-              font-size: 16px;
+              font-size: 18px;
               font-weight: bold;
-            ">${markerData.type === "pickup" ? "P" : markerData.type === "dropoff" ? "D" : "🚗"}</div>
+            ">${markerData.type === "pickup" ? "📍" : markerData.type === "dropoff" ? "🎯" : "🚗"}</div>
           </div>
         `,
-        iconSize: [32, 32],
-        iconAnchor: [16, 32],
+        iconSize: [36, 36],
+        iconAnchor: [18, 36],
       });
 
       const marker = L.marker(markerData.position, { 
@@ -154,6 +181,11 @@ const Map = ({
           const position = e.target.getLatLng();
           onMarkerDragRef.current?.(markerData.type, position);
         });
+      }
+
+      // Add click handler for marker
+      if (markerData.onClick) {
+        marker.on('click', markerData.onClick);
       }
 
       markersRef.current.push(marker);

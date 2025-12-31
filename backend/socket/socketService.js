@@ -5,8 +5,16 @@ class SocketService {
   constructor(io) {
     this.io = io;
     this.connectedUsers = new Map(); // userId -> socketId
+    this.driverLocations = new Map(); // driverId -> {lat, lng, timestamp}
 
     this.initialize();
+  }
+
+  // Simple geohash for area-based rooms (precision ~5km)
+  getAreaCode(lat, lng) {
+    const latCode = Math.floor(lat * 10);
+    const lngCode = Math.floor(lng * 10);
+    return `${latCode}_${lngCode}`;
   }
 
   initialize() {
@@ -63,11 +71,24 @@ class SocketService {
     // Driver location updates
     socket.on('driver_location', async (data) => {
       try {
-        const { lat, lng } = data;
+        const { lat, lng, vehicle_type } = data;
         await Driver.updateLocation(socket.userId, lat, lng, true);
 
-        // Optionally broadcast to riders tracking this driver
-        // This would be implemented when ride is active
+        // Store location in memory for quick access
+        this.driverLocations.set(socket.userId, { lat, lng, vehicle_type, timestamp: Date.now() });
+
+        // Join area-based room for efficient broadcasting
+        const areaCode = this.getAreaCode(lat, lng);
+        socket.join(`area_${areaCode}`);
+
+        // Broadcast to nearby riders in the same area
+        socket.broadcast.to(`area_${areaCode}`).emit('driver_moved', {
+          driver_id: socket.userId,
+          lat,
+          lng,
+          vehicle_type,
+          is_online: true
+        });
       } catch (error) {
         console.error('Driver location error:', error);
       }
@@ -103,6 +124,33 @@ class SocketService {
     socket.on('stop_tracking', (data) => {
       const { ride_id } = data;
       socket.leave(`ride_${ride_id}`);
+    });
+
+    // Join area to receive nearby driver updates
+    socket.on('join_area', (data) => {
+      const { lat, lng } = data;
+      const areaCode = this.getAreaCode(lat, lng);
+      socket.join(`area_${areaCode}`);
+      
+      // Send current drivers in area
+      const nearbyDrivers = [];
+      for (const [driverId, location] of this.driverLocations.entries()) {
+        const driverAreaCode = this.getAreaCode(location.lat, location.lng);
+        if (driverAreaCode === areaCode) {
+          nearbyDrivers.push({
+            driver_id: driverId,
+            ...location
+          });
+        }
+      }
+      
+      socket.emit('nearby_drivers_initial', { drivers: nearbyDrivers });
+    });
+
+    socket.on('leave_area', (data) => {
+      const { lat, lng } = data;
+      const areaCode = this.getAreaCode(lat, lng);
+      socket.leave(`area_${areaCode}`);
     });
   }
 

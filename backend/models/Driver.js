@@ -15,10 +15,17 @@ class Driver {
 
   static async getNearbyDrivers(lat, lng, radiusKm = 5) {
     // Simple distance calculation using Haversine formula
+    // Join with driver_documents to get vehicle_type
     const result = await pool.query(
-      `SELECT dl.*, u.name, u.phone, u.is_verified
+      `SELECT dl.*, u.name, u.phone, u.is_verified, dd.vehicle_type,
+        (6371 * acos(
+          cos(radians($1)) * cos(radians(dl.lat)) *
+          cos(radians(dl.lng) - radians($2)) +
+          sin(radians($1)) * sin(radians(dl.lat))
+        )) as distance_km
       FROM driver_locations dl
       JOIN users u ON dl.driver_id = u.id
+      LEFT JOIN driver_documents dd ON dl.driver_id = dd.driver_id
       WHERE dl.is_online = true
         AND u.is_blocked = false
         AND u.is_verified = true
@@ -30,14 +37,8 @@ class Driver {
             sin(radians($1)) * sin(radians(dl.lat))
           )
         ) <= $3
-      ORDER BY (
-        6371 * acos(
-          cos(radians($1)) * cos(radians(dl.lat)) *
-          cos(radians(dl.lng) - radians($2)) +
-          sin(radians($1)) * sin(radians(dl.lat))
-        )
-      ) ASC
-      LIMIT 10`,
+      ORDER BY distance_km ASC
+      LIMIT 20`,
       [lat, lng, radiusKm]
     );
     return result.rows;

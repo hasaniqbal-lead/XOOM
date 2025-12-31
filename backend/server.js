@@ -9,6 +9,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 
 const SocketService = require('./socket/socketService');
+const ScheduleProcessor = require('./jobs/scheduleProcessor');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -42,9 +43,13 @@ const io = new Server(server, {
 // Initialize Socket Service
 const socketService = new SocketService(io);
 
+// Initialize Schedule Processor
+const scheduleProcessor = new ScheduleProcessor(io);
+
 // Make io accessible in routes
 app.set('io', io);
 app.set('socketService', socketService);
+app.set('scheduleProcessor', scheduleProcessor);
 
 // Middleware
 app.use(helmet());
@@ -123,19 +128,34 @@ server.listen(PORT, () => {
   console.log(`\n✓ Server running on port ${PORT}`);
   console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`✓ Socket.IO enabled`);
+  console.log(`✓ Schedule processor enabled`);
   console.log('\nAPI Endpoints:');
   console.log('  POST   /auth/signup');
   console.log('  POST   /auth/login');
   console.log('  POST   /rides');
   console.log('  POST   /rides/:id/accept');
+  console.log('  GET    /driver/nearby');
   console.log('  GET    /announcements');
   console.log('  GET    /admin/dashboard');
   console.log('\nReady to accept connections...\n');
+  
+  // Start schedule processor
+  scheduleProcessor.start();
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM received. Closing server gracefully...');
+  scheduleProcessor.stop();
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('\nSIGINT received. Closing server gracefully...');
+  scheduleProcessor.stop();
   server.close(() => {
     console.log('Server closed');
     process.exit(0);

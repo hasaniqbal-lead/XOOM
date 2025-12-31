@@ -5,7 +5,13 @@ const pool = require('../config/database');
 const rideController = {
   async createRide(req, res) {
     try {
-      const { pickup_lat, pickup_lng, pickup_address, drop_lat, drop_lng, drop_address } = req.body;
+      const { 
+        pickup_lat, pickup_lng, pickup_address, 
+        drop_lat, drop_lng, drop_address,
+        request_type = 'broadcast',
+        target_driver_ids = [],
+        scheduled_for = null
+      } = req.body;
       const rider_id = req.user.id;
 
       // Check daily ride limit
@@ -34,8 +40,22 @@ const rideController = {
       estimated_fare = Math.max(estimated_fare, fareSettings.minimum_fare);
       estimated_fare = parseFloat(estimated_fare.toFixed(2));
 
-      // Create ride
-      const ride = await Ride.create({
+      // Handle scheduled ride
+      if (scheduled_for) {
+        const scheduledTime = new Date(scheduled_for);
+        const now = new Date();
+        
+        if (scheduledTime <= now) {
+          return res.status(400).json({ error: 'Scheduled time must be in the future' });
+        }
+        
+        if (scheduledTime > new Date(now.getTime() + 7*24*60*60*1000)) {
+          return res.status(400).json({ error: 'Cannot schedule more than 7 days in advance' });
+        }
+      }
+
+      // Create ride with request type
+      const rideData = {
         rider_id,
         pickup_lat,
         pickup_lng,
@@ -44,28 +64,108 @@ const rideController = {
         drop_lng,
         drop_address,
         distance_km,
-        estimated_fare
-      });
+        estimated_fare,
+        request_type,
+        target_drivers: target_driver_ids.length > 0 ? target_driver_ids : null,
+        status: scheduled_for ? 'scheduled' : 'requested',
+        scheduled_for: scheduled_for || null
+      };
 
-      // Find nearby drivers and notify them via Socket.IO
-      const nearbyDrivers = await Driver.getNearbyDrivers(pickup_lat, pickup_lng, 5);
+      const ride = await Ride.create(rideData);
 
-      // Emit to Socket.IO (will be handled by socket service)
-      if (req.app.get('io')) {
-        const io = req.app.get('io');
-        nearbyDrivers.forEach(driver => {
-          io.to(`user_${driver.driver_id}`).emit('new_ride', {
-            ride: {
-              id: ride.id,
-              pickup_lat: ride.pickup_lat,
-              pickup_lng: ride.pickup_lng,
-              drop_lat: ride.drop_lat,
-              drop_lng: ride.drop_lng,
-              estimated_fare: ride.estimated_fare,
-              distance_km: ride.distance_km
-            }
+      // Don't notify drivers immediately if scheduled
+      if (scheduled_for) {
+        return res.status(201).json({ ...ride, message: 'Ride scheduled successfully' });
+      }
+
+      // Handle direct request
+      if (request_type === 'direct' && target_driver_ids.length > 0) {
+        if (req.app.get('io')) {
+          const io = req.app.get('io');
+          
+          // Send to specific drivers
+          target_driver_ids.forEach(driverId => {
+            io.to(`user_${driverId}`).emit('direct_ride_request', {
+              ride: {
+                id: ride.id,
+                pickup_lat: ride.pickup_lat,
+                pickup_lng: ride.pickup_lng,
+                drop_lat: ride.drop_lat,
+                drop_lng: ride.drop_lng,
+                estimated_fare: ride.estimated_fare,
+                distance_km: ride.distance_km,
+                priority: 'high',
+                expires_at: Date.now() + 60000 // 60 seconds
+              }
+            });
           });
-        });
+
+          // Log direct requests
+          for (const driverId of target_driver_ids) {
+            await pool.query(
+              `INSERT INTO ride_request_log (ride_id, driver_id, request_type, created_at)
+               VALUES ($1, $2, 'direct', NOW())`,
+              [ride.id, driverId]
+            );
+          }
+
+          // Set timeout for fallback to broadcast
+          setTimeout(async () => {
+            try {
+              const rideCheck = await pool.query(
+                'SELECT status FROM rides WHERE id = $1',
+                [ride.id]
+              );
+              
+              if (rideCheck.rows[0] && rideCheck.rows[0].status === 'requested') {
+                // No one accepted, fallback to broadcast
+                await pool.query(
+                  'UPDATE rides SET request_type = $1, fallback_to_broadcast = true WHERE id = $2',
+                  ['broadcast', ride.id]
+                );
+                
+                const nearbyDrivers = await Driver.getNearbyDrivers(pickup_lat, pickup_lng, 5);
+                nearbyDrivers.forEach(driver => {
+                  if (!target_driver_ids.includes(driver.driver_id)) {
+                    io.to(`user_${driver.driver_id}`).emit('new_ride', {
+                      ride: {
+                        id: ride.id,
+                        pickup_lat: ride.pickup_lat,
+                        pickup_lng: ride.pickup_lng,
+                        drop_lat: ride.drop_lat,
+                        drop_lng: ride.drop_lng,
+                        estimated_fare: ride.estimated_fare,
+                        distance_km: ride.distance_km
+                      }
+                    });
+                  }
+                });
+              }
+            } catch (error) {
+              console.error('Fallback broadcast error:', error);
+            }
+          }, 60000); // 60 seconds
+        }
+      } else {
+        // Broadcast to all nearby drivers
+        const nearbyDrivers = await Driver.getNearbyDrivers(pickup_lat, pickup_lng, 5);
+
+        if (req.app.get('io')) {
+          const io = req.app.get('io');
+          nearbyDrivers.forEach(driver => {
+            io.to(`user_${driver.driver_id}`).emit('new_ride', {
+              ride: {
+                id: ride.id,
+                pickup_lat: ride.pickup_lat,
+                pickup_lng: ride.pickup_lng,
+                drop_lat: ride.drop_lat,
+                drop_lng: ride.drop_lng,
+                estimated_fare: ride.estimated_fare,
+                distance_km: ride.distance_km
+              }
+            });
+          });
+        }
       }
 
       res.status(201).json(ride);
