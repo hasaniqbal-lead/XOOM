@@ -1,43 +1,42 @@
 {
   "name": "XOOM - Your Ride, Your Way",
   "short_name": "XOOM",
-  "description": "Modern ride-hailing app connecting riders and drivers seamlessly",
+  "description": "Book your ride with XOOM - Fast, reliable, and affordable rides across Pakistan",
   "icons": [
     {
-      "src": "/android-chrome-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "src": "/logo-icon/xoom-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     },
     {
-      "src": "/android-chrome-512x512.png",
+      "src": "/logo-icon/xoom-icon.svg",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
   ],
-  "theme_color": "#FFB84D",
-  "background_color": "#FFFFFF",
+  "theme_color": "#ffb33f",
+  "background_color": "#ffffff",
   "display": "standalone",
-  "orientation": "portrait",
-  "scope": "/",
   "start_url": "/",
-  "categories": ["travel", "transportation"],
+  "scope": "/",
+  "orientation": "portrait-primary",
+  "categories": ["travel", "navigation"],
   "shortcuts": [
     {
       "name": "Request Ride",
       "short_name": "Ride",
       "description": "Request a new ride",
       "url": "/?action=request",
-      "icons": [{ "src": "/favicon-192x192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
     },
     {
       "name": "Driver Requests",
       "short_name": "Drivers",
       "description": "View live driver requests",
       "url": "/driver-requests",
-      "icons": [{ "src": "/favicon-192x192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
     }
   ]
 }
-
