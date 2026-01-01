@@ -19,7 +19,20 @@ const adminRoutes = require('./routes/admin');
 const announcementRoutes = require('./routes/announcements');
 const reviewRoutes = require('./routes/reviews');
 const notificationRoutes = require('./routes/notifications');
-const mapsRoutes = require('./routes/maps');
+
+// Debug maps routes loading
+let mapsRoutes;
+try {
+  mapsRoutes = require('./routes/maps');
+  console.log('✓ Maps routes loaded successfully');
+  console.log('  Type:', typeof mapsRoutes);
+  console.log('  Has stack:', !!mapsRoutes.stack);
+} catch (error) {
+  console.error('❌ Error loading maps routes:', error.message);
+  console.error(error.stack);
+  process.exit(1);
+}
+
 const publicRidesRoutes = require('./routes/publicRides');
 
 const app = express();
