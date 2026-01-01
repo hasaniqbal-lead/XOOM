@@ -52,6 +52,9 @@ app.set('io', io);
 app.set('socketService', socketService);
 app.set('scheduleProcessor', scheduleProcessor);
 
+// Trust proxy for rate limiting behind Nginx
+app.set('trust proxy', true);
+
 // Middleware
 app.use(helmet());
 app.use(cors(corsOptions));
