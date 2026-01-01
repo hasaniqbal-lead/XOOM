@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu } from "lucide-react";
 import RiderView from "@/components/RiderView";
 import DriverView from "@/components/DriverView";
@@ -14,6 +14,9 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { useAuth } from "@/contexts/AuthContext";
+import { formatCurrency } from "@/config/currency";
+import axios from "axios";
 
 type ViewType = "main" | "driver-register" | "user-register";
 
@@ -22,6 +25,30 @@ const Index = () => {
   const [currentView, setCurrentView] = useState<ViewType>("main");
   const [guestData, setGuestData] = useState<{ name: string; contact: string } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [driverStats, setDriverStats] = useState<{ total_rides: number; earnings_today: number } | null>(null);
+  const { user } = useAuth();
+
+  // Fetch driver stats when user is a driver
+  useEffect(() => {
+    const fetchDriverStats = async () => {
+      if (user && user.role === 'driver') {
+        try {
+          const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/driver/stats`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          if (response.data.success) {
+            setDriverStats(response.data.stats);
+          }
+        } catch (error) {
+          console.error('Failed to fetch driver stats:', error);
+        }
+      }
+    };
+
+    fetchDriverStats();
+  }, [user]);
 
   const handleGuestContinue = (name: string, contact: string) => {
     setGuestData({ name, contact });
@@ -87,21 +114,21 @@ const Index = () => {
                         </Button>
                       </>
                     )}
-                    {mode === "driver" && (
+                    {mode === "driver" && user && user.role === "driver" && (
                       <div className="pt-4 border-t border-border space-y-2">
                         <h3 className="font-semibold text-sm text-muted-foreground">Driver Stats</h3>
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span>Total Rides:</span>
-                            <span className="font-semibold">142</span>
+                            <span className="font-semibold">{driverStats?.total_rides || 0}</span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span>Earnings Today:</span>
-                            <span className="font-semibold text-primary">₹ 2,450</span>
+                            <span className="font-semibold text-primary">{formatCurrency(driverStats?.earnings_today || 0)}</span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span>Rating:</span>
-                            <span className="font-semibold">4.8 ⭐</span>
+                            <span className="font-semibold">{user?.average_rating?.toFixed(1) || "N/A"} ⭐</span>
                           </div>
                         </div>
                       </div>
@@ -116,7 +143,7 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="animate-fade-in">
-        {mode === "rider" ? <RiderView /> : <DriverView />}
+        {mode === "rider" ? <RiderView guestData={guestData} /> : <DriverView />}
       </main>
     </div>
   );

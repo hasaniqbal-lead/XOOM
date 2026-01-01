@@ -16,6 +16,23 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
+const optionalAuth = (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded;
+    }
+    
+    // Continue regardless of whether token was present/valid
+    next();
+  } catch (error) {
+    // Token invalid but we allow request to continue
+    next();
+  }
+};
+
 const requireRole = (...roles) => {
   return (req, res, next) => {
     if (!req.user) {
@@ -30,4 +47,4 @@ const requireRole = (...roles) => {
   };
 };
 
-module.exports = { authMiddleware, requireRole };
+module.exports = { authMiddleware, requireRole, optionalAuth };

@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
+import axios from "axios";
 
 interface UserRegistrationProps {
   onBack: () => void;
@@ -12,19 +14,55 @@ interface UserRegistrationProps {
 
 const UserRegistration = ({ onBack, onGuestContinue }: UserRegistrationProps) => {
   const [isGuestMode, setIsGuestMode] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     contact: "",
+    password: "",
     email: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (isGuestMode) {
       onGuestContinue(formData.name, formData.contact);
-    } else {
-      // Handle full registration
-      console.log("Full registration:", formData);
+      return;
+    }
+
+    // Handle full registration
+    try {
+      setLoading(true);
+      
+      // Format phone number to Pakistani format (+92...)
+      let phone = formData.contact.replace(/\D/g, ''); // Remove non-digits
+      if (phone.startsWith('0')) {
+        phone = '92' + phone.substring(1);
+      } else if (!phone.startsWith('92')) {
+        phone = '92' + phone;
+      }
+      phone = '+' + phone;
+
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/auth/signup`,
+        {
+          name: formData.name,
+          phone: phone,
+          password: formData.password,
+          role: 'rider',
+          email: formData.email || undefined
+        }
+      );
+
+      if (response.data.success) {
+        toast.success("Registration successful! Please login.");
+        setTimeout(() => onBack(), 1500);
+      }
+    } catch (error: any) {
+      const message = error.response?.data?.error || "Registration failed. Please try again.";
+      toast.error(message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -61,6 +99,7 @@ const UserRegistration = ({ onBack, onGuestContinue }: UserRegistrationProps) =>
               <Input
                 id="contact"
                 type="tel"
+                placeholder="03XX XXXXXXX"
                 value={formData.contact}
                 onChange={(e) => setFormData({...formData, contact: e.target.value})}
                 required
@@ -68,19 +107,33 @@ const UserRegistration = ({ onBack, onGuestContinue }: UserRegistrationProps) =>
             </div>
 
             {!isGuestMode && (
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address (Optional)</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                />
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Minimum 6 characters"
+                    value={formData.password}
+                    onChange={(e) => setFormData({...formData, password: e.target.value})}
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email Address (Optional)</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  />
+                </div>
+              </>
             )}
 
-            <Button type="submit" className="w-full xoom-gradient">
-              {isGuestMode ? "Continue as Guest" : "Register"}
+            <Button type="submit" className="w-full xoom-gradient" disabled={loading}>
+              {loading ? "Registering..." : isGuestMode ? "Continue as Guest" : "Register"}
             </Button>
 
             {isGuestMode && (

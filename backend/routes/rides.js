@@ -1,21 +1,22 @@
 const express = require('express');
 const { body } = require('express-validator');
 const { validate } = require('../middleware/validation');
-const { authMiddleware, requireRole } = require('../middleware/auth');
+const { authMiddleware, requireRole, optionalAuth } = require('../middleware/auth');
 const rideController = require('../controllers/rideController');
 
 const router = express.Router();
 
-// Create ride (Rider only)
+// Create ride (Authenticated riders or Guest users)
 router.post(
   '/',
-  authMiddleware,
-  requireRole('rider'),
+  optionalAuth,
   [
     body('pickup_lat').isFloat(),
     body('pickup_lng').isFloat(),
     body('drop_lat').isFloat(),
     body('drop_lng').isFloat(),
+    body('guest_name').optional().isString(),
+    body('guest_contact').optional().isString(),
     validate
   ],
   rideController.createRide

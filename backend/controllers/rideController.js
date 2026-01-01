@@ -10,21 +10,26 @@ const rideController = {
         drop_lat, drop_lng, drop_address,
         request_type = 'broadcast',
         target_driver_ids = [],
-        scheduled_for = null
+        scheduled_for = null,
+        guest_name = null,
+        guest_contact = null
       } = req.body;
-      const rider_id = req.user.id;
+      const rider_id = req.user ? req.user.id : null;
+      const is_guest = !req.user;
 
-      // Check daily ride limit
-      const dailyRides = await Ride.getDailyRideCount(rider_id);
-      const limitResult = await pool.query(
-        "SELECT daily_limit FROM ride_limits WHERE role = 'rider' AND active = true"
-      );
+      // Check daily ride limit (skip for guest users)
+      if (!is_guest) {
+        const dailyRides = await Ride.getDailyRideCount(rider_id);
+        const limitResult = await pool.query(
+          "SELECT daily_limit FROM ride_limits WHERE role = 'rider' AND active = true"
+        );
 
-      if (limitResult.rows[0] && dailyRides >= limitResult.rows[0].daily_limit) {
-        return res.status(429).json({
-          error: 'Daily ride limit reached',
-          limit: limitResult.rows[0].daily_limit
-        });
+        if (limitResult.rows[0] && dailyRides >= limitResult.rows[0].daily_limit) {
+          return res.status(429).json({
+            error: 'Daily ride limit reached',
+            limit: limitResult.rows[0].daily_limit
+          });
+        }
       }
 
       // Calculate distance (simple Haversine formula)
@@ -80,7 +85,9 @@ const rideController = {
         status: scheduled_for ? 'scheduled' : 'requested',
         scheduled_for: scheduled_for || null,
         request_expires_at: requestExpiresAt,
-        passengers: req.body.passengers || 1
+        passengers: req.body.passengers || 1,
+        guest_name: is_guest ? guest_name : null,
+        guest_contact: is_guest ? guest_contact : null
       };
 
       const ride = await Ride.create(rideData);

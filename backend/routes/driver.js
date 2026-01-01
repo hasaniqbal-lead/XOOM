@@ -72,6 +72,45 @@ router.get(
   driverController.getWarnings
 );
 
+// Get driver stats
+router.get(
+  '/stats',
+  authMiddleware,
+  requireRole('driver'),
+  async (req, res) => {
+    try {
+      const driverId = req.user.id;
+      
+      // Get total completed rides
+      const totalRidesResult = await require('../config/database').query(
+        'SELECT COUNT(*) as total FROM rides WHERE driver_id = $1 AND status = $2',
+        [driverId, 'completed']
+      );
+      
+      // Get today's earnings (completed rides from today)
+      const earningsResult = await require('../config/database').query(
+        `SELECT COALESCE(SUM(final_fare), 0) as earnings 
+         FROM rides 
+         WHERE driver_id = $1 
+         AND status = $2 
+         AND DATE(completed_at) = CURRENT_DATE`,
+        [driverId, 'completed']
+      );
+      
+      res.json({
+        success: true,
+        stats: {
+          total_rides: parseInt(totalRidesResult.rows[0].total),
+          earnings_today: parseFloat(earningsResult.rows[0].earnings)
+        }
+      });
+    } catch (error) {
+      console.error('Driver stats error:', error);
+      res.status(500).json({ error: 'Failed to fetch driver stats' });
+    }
+  }
+);
+
 // Public endpoint: Get nearby drivers (no auth required)
 router.get(
   '/nearby',

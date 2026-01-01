@@ -15,7 +15,11 @@ import { toast } from "sonner";
 import { geocodingService } from "@/services/geocoding";
 import { locationHistoryService, SavedLocation } from "@/services/locationHistory";
 
-const RiderView = () => {
+interface RiderViewProps {
+  guestData?: { name: string; contact: string } | null;
+}
+
+const RiderView = ({ guestData }: RiderViewProps) => {
   const [pickupLocation, setPickupLocation] = useState("");
   const [dropLocation, setDropLocation] = useState("");
   const [passengers, setPassengers] = useState(1);
@@ -184,14 +188,22 @@ const RiderView = () => {
     try {
       setLoading(true);
 
-      const rideData = {
+      const rideData: any = {
         pickup_lat: pickupCoords[0],
         pickup_lng: pickupCoords[1],
+        pickup_address: pickupLocation,
         drop_lat: dropCoords[0],
         drop_lng: dropCoords[1],
+        drop_address: dropLocation,
         passengers,
         vehicle_type: selectedVehicle,
       };
+
+      // Include guest data if user is guest
+      if (guestData) {
+        rideData.guest_name = guestData.name;
+        rideData.guest_contact = guestData.contact;
+      }
 
       // Create ride via API
       const response = await ridesAPI.createRide(rideData);

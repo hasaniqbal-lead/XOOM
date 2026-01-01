@@ -10,6 +10,7 @@ import { useSocket } from "@/contexts/SocketContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { geocodingService } from "@/services/geocoding";
+import { formatCurrency } from "@/config/currency";
 
 interface RideRequest {
   id: string;
@@ -214,7 +215,7 @@ const DriverView = () => {
               </div>
               <div className="text-center flex-1 border-x border-border">
                 <p className="text-xs text-muted-foreground">Earnings</p>
-                <p className="text-xl font-bold text-primary">₹ {todayEarnings}</p>
+                <p className="text-xl font-bold text-primary">{formatCurrency(todayEarnings)}</p>
               </div>
               <div className="text-center flex-1">
                 <p className="text-xs text-muted-foreground">Rating</p>
@@ -263,7 +264,7 @@ const DriverView = () => {
                   </h3>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-primary">₹ {acceptedRide.estimated_fare}</p>
+                  <p className="text-2xl font-bold text-primary">{formatCurrency(acceptedRide.estimated_fare)}</p>
                   <div className="flex items-center gap-2 justify-end">
                     {etaToPickup && (
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
