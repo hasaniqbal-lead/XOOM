@@ -105,4 +105,27 @@ export const adminAPI = {
   }) => api.put("/admin/fare-settings", data),
 };
 
+// Saved Locations API
+export const locationsAPI = {
+  getAll: () => api.get("/locations"),
+  getDefaults: () => api.get("/locations/defaults"),
+  create: (data: {
+    label: string;
+    address: string;
+    lat: number;
+    lng: number;
+    icon?: string;
+  }) => api.post("/locations", data),
+  update: (id: number, data: {
+    label?: string;
+    address?: string;
+    lat?: number;
+    lng?: number;
+    icon?: string;
+  }) => api.put(`/locations/${id}`, data),
+  delete: (id: number) => api.delete(`/locations/${id}`),
+  setDefaultPickup: (id: number) => api.post(`/locations/${id}/default-pickup`),
+  setDefaultDrop: (id: number) => api.post(`/locations/${id}/default-drop`),
+};
+
 export default api;

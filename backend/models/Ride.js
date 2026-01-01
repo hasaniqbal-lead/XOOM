@@ -17,7 +17,10 @@ class Ride {
       scheduled_for = null,
       status = 'requested',
       request_expires_at = null,
-      passengers = 1
+      passengers = 1,
+      vehicle_type = 'car',
+      guest_name = null,
+      guest_contact = null
     } = rideData;
 
     const result = await pool.query(
@@ -25,12 +28,12 @@ class Ride {
         rider_id, pickup_lat, pickup_lng, pickup_address,
         drop_lat, drop_lng, drop_address, distance_km, estimated_fare, 
         status, request_type, target_drivers, scheduled_for, request_expires_at, passengers,
-        guest_name, guest_contact
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        vehicle_type, guest_name, guest_contact
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
       RETURNING *`,
       [rider_id, pickup_lat, pickup_lng, pickup_address, drop_lat, drop_lng, drop_address, 
        distance_km, estimated_fare, status, request_type, target_drivers, scheduled_for, 
-       request_expires_at, passengers, guest_name, guest_contact]
+       request_expires_at, passengers, vehicle_type, guest_name, guest_contact]
     );
     return result.rows[0];
   }

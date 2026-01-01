@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MapPin, Users, Navigation, Clock, Share2, Loader2, Target, Home as HomeIcon, Briefcase } from "lucide-react";
+import { MapPin, Users, Navigation, Clock, Share2, Loader2, Target, Home as HomeIcon, Briefcase, X, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,10 @@ const RiderView = ({ guestData }: RiderViewProps) => {
   const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(null);
   const [dropCoords, setDropCoords] = useState<[number, number] | null>(null);
   const [routeGeometry, setRouteGeometry] = useState<Array<[number, number]> | null>(null);
+
+  // Location locking state - once set, location won't change until cleared
+  const [pickupLocked, setPickupLocked] = useState(false);
+  const [dropLocked, setDropLocked] = useState(false);
 
   // Location features state
   const [isUsingCurrentLocation, setIsUsingCurrentLocation] = useState(false);
@@ -220,31 +224,60 @@ const RiderView = ({ guestData }: RiderViewProps) => {
     }
   };
 
-  // Handle map click to set location
+  // Clear pickup location
+  const handleClearPickup = () => {
+    setPickupLocation("");
+    setPickupCoords(null);
+    setPickupLocked(false);
+    setRouteGeometry(null);
+    setEstimatedFare(null);
+    toast.info("Pickup location cleared");
+  };
+
+  // Clear drop location
+  const handleClearDrop = () => {
+    setDropLocation("");
+    setDropCoords(null);
+    setDropLocked(false);
+    setRouteGeometry(null);
+    setEstimatedFare(null);
+    toast.info("Drop location cleared");
+  };
+
+  // Handle map click to set location (respects locked state)
   const handleMapClick = async (latlng: { lat: number; lng: number }) => {
     try {
       setLoading(true);
       const result = await geocodingService.reverseGeocode(latlng.lat, latlng.lng);
       
-      if (!pickupCoords) {
-        // Set as pickup
-        setPickupLocation(result.display_name);
-        setPickupCoords([latlng.lat, latlng.lng]);
-        toast.success("Pickup location set");
-      } else if (!dropCoords) {
-        // Set as drop
-        setDropLocation(result.display_name);
-        setDropCoords([latlng.lat, latlng.lng]);
-        toast.success("Drop location set");
-        
-        // Save to recent
-        locationHistoryService.save({
-          type: 'recent',
-          name: result.display_name,
-          address: result.display_name,
-          lat: latlng.lat,
-          lng: latlng.lng,
-        });
+      // Check for unlocked slots
+      if (!pickupCoords || !pickupLocked) {
+        if (!pickupLocked) {
+          // Set as pickup and lock it
+          setPickupLocation(result.display_name);
+          setPickupCoords([latlng.lat, latlng.lng]);
+          setPickupLocked(true);
+          toast.success("Pickup location set and locked");
+        }
+      } else if (!dropCoords || !dropLocked) {
+        if (!dropLocked) {
+          // Set as drop and lock it
+          setDropLocation(result.display_name);
+          setDropCoords([latlng.lat, latlng.lng]);
+          setDropLocked(true);
+          toast.success("Drop location set and locked");
+          
+          // Save to recent
+          locationHistoryService.save({
+            type: 'recent',
+            name: result.display_name,
+            address: result.display_name,
+            lat: latlng.lat,
+            lng: latlng.lng,
+          });
+        }
+      } else {
+        toast.info("Both locations are locked. Clear one to change it.");
       }
     } catch (error) {
       toast.error("Could not get address for this location");
@@ -253,19 +286,31 @@ const RiderView = ({ guestData }: RiderViewProps) => {
     }
   };
 
-  // Handle marker drag
+  // Handle marker drag (respects locked state)
   const handleMarkerDrag = async (type: "pickup" | "dropoff", latlng: { lat: number; lng: number }) => {
+    // Check if the location is locked
+    if (type === "pickup" && pickupLocked) {
+      toast.info("Pickup is locked. Clear it first to change.");
+      return;
+    }
+    if (type === "dropoff" && dropLocked) {
+      toast.info("Drop-off is locked. Clear it first to change.");
+      return;
+    }
+
     try {
       const result = await geocodingService.reverseGeocode(latlng.lat, latlng.lng);
       
       if (type === "pickup") {
         setPickupLocation(result.display_name);
         setPickupCoords([latlng.lat, latlng.lng]);
-        toast.success("Pickup location updated");
+        setPickupLocked(true);
+        toast.success("Pickup location updated and locked");
       } else {
         setDropLocation(result.display_name);
         setDropCoords([latlng.lat, latlng.lng]);
-        toast.success("Drop location updated");
+        setDropLocked(true);
+        toast.success("Drop location updated and locked");
       }
     } catch (error) {
       toast.error("Could not update address");
@@ -328,7 +373,8 @@ const RiderView = ({ guestData }: RiderViewProps) => {
     if (pendingLocation) {
       setPickupLocation(pendingLocation.address);
       setPickupCoords(pendingLocation.coords);
-      toast.success("Pickup location set");
+      setPickupLocked(true);
+      toast.success("Pickup location set and locked");
     }
     setShowLocationChoice(false);
     setPendingLocation(null);
@@ -339,7 +385,8 @@ const RiderView = ({ guestData }: RiderViewProps) => {
     if (pendingLocation) {
       setDropLocation(pendingLocation.address);
       setDropCoords(pendingLocation.coords);
-      toast.success("Drop-off location set");
+      setDropLocked(true);
+      toast.success("Drop-off location set and locked");
     }
     setShowLocationChoice(false);
     setPendingLocation(null);
@@ -435,20 +482,64 @@ const RiderView = ({ guestData }: RiderViewProps) => {
 
           {/* Location Inputs */}
           <div className="space-y-3">
-            <AddressSearch
-              icon={<Navigation className="w-5 h-5 text-primary" />}
-              placeholder="Search pickup location"
-              value={pickupLocation}
-              onSelect={handlePickupSelect}
-              userLocation={currentLocation ? { lat: currentLocation[0], lng: currentLocation[1] } : undefined}
-            />
-            <AddressSearch
-              icon={<MapPin className="w-5 h-5 text-destructive" />}
-              placeholder="Search drop location"
-              value={dropLocation}
-              onSelect={handleDropSelect}
-              userLocation={currentLocation ? { lat: currentLocation[0], lng: currentLocation[1] } : undefined}
-            />
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <AddressSearch
+                  icon={
+                    pickupLocked ? (
+                      <Lock className="w-5 h-5 text-green-500" />
+                    ) : (
+                      <Navigation className="w-5 h-5 text-primary" />
+                    )
+                  }
+                  placeholder="Search pickup location"
+                  value={pickupLocation}
+                  onSelect={handlePickupSelect}
+                  userLocation={currentLocation ? { lat: currentLocation[0], lng: currentLocation[1] } : undefined}
+                  disabled={pickupLocked}
+                />
+              </div>
+              {pickupLocked && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleClearPickup}
+                  className="flex-shrink-0 h-10 w-10 text-muted-foreground hover:text-destructive"
+                  title="Clear pickup location"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <AddressSearch
+                  icon={
+                    dropLocked ? (
+                      <Lock className="w-5 h-5 text-orange-500" />
+                    ) : (
+                      <MapPin className="w-5 h-5 text-destructive" />
+                    )
+                  }
+                  placeholder="Search drop location"
+                  value={dropLocation}
+                  onSelect={handleDropSelect}
+                  userLocation={currentLocation ? { lat: currentLocation[0], lng: currentLocation[1] } : undefined}
+                  disabled={dropLocked}
+                />
+              </div>
+              {dropLocked && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleClearDrop}
+                  className="flex-shrink-0 h-10 w-10 text-muted-foreground hover:text-destructive"
+                  title="Clear drop location"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Passenger Counter */}
@@ -460,6 +551,7 @@ const RiderView = ({ guestData }: RiderViewProps) => {
             <VehicleSelector 
               selectedVehicle={selectedVehicle}
               onSelectVehicle={setSelectedVehicle}
+              passengers={passengers}
             />
           </div>
 

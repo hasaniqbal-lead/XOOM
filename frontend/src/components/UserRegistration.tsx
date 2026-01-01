@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
-import axios from "axios";
+import { authAPI } from "@/services/api";
 
 interface UserRegistrationProps {
   onBack: () => void;
@@ -43,18 +43,14 @@ const UserRegistration = ({ onBack, onGuestContinue }: UserRegistrationProps) =>
       }
       phone = '+' + phone;
 
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/auth/signup`,
-        {
-          name: formData.name,
-          phone: phone,
-          password: formData.password,
-          role: 'rider',
-          email: formData.email || undefined
-        }
-      );
+      const response = await authAPI.signup({
+        name: formData.name,
+        phone: phone,
+        password: formData.password,
+        role: 'rider'
+      });
 
-      if (response.data.success) {
+      if (response.data) {
         toast.success("Registration successful! Please login.");
         setTimeout(() => onBack(), 1500);
       }

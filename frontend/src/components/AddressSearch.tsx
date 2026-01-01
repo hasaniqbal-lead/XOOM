@@ -15,6 +15,7 @@ interface AddressSearchProps {
     display_name: string;
   }) => void;
   userLocation?: { lat: number; lng: number };
+  disabled?: boolean;
 }
 
 const AddressSearch = ({
@@ -23,6 +24,7 @@ const AddressSearch = ({
   value,
   onSelect,
   userLocation,
+  disabled = false,
 }: AddressSearchProps) => {
   const [query, setQuery] = useState(value);
   const [suggestions, setSuggestions] = useState<AutocompleteResult[]>([]);
@@ -85,6 +87,7 @@ const AddressSearch = ({
   }, [query, userLocation]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     setQuery(e.target.value);
   };
 
@@ -101,16 +104,17 @@ const AddressSearch = ({
 
   return (
     <div ref={wrapperRef} className="relative">
-      <Card className="xoom-surface-elevated p-1">
+      <Card className={`xoom-surface-elevated p-1 ${disabled ? 'opacity-75 bg-muted/30' : ''}`}>
         <div className="flex items-center gap-3 px-3">
           {icon || <Search className="w-5 h-5 text-muted-foreground" />}
           <Input
             value={query}
             onChange={handleInputChange}
             placeholder={placeholder}
-            className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-12"
+            disabled={disabled}
+            className={`border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-12 ${disabled ? 'cursor-not-allowed' : ''}`}
           />
-          {loading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+          {loading && !disabled && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
         </div>
       </Card>
 

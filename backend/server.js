@@ -40,6 +40,7 @@ try {
 }
 
 const publicRidesRoutes = require('./routes/publicRides');
+const locationRoutes = require('./routes/locations');
 
 const app = express();
 const server = http.createServer(app);
@@ -82,6 +83,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Logging
+const { requestLogger, errorLogger } = require('./middleware/requestLogger');
+app.use(requestLogger);
+
+// Morgan for access logs (combined format for production)
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 } else {
@@ -119,11 +124,15 @@ app.use('/reviews', reviewRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/maps', mapsRoutes);
 app.use('/public', publicRidesRoutes);
+app.use('/locations', locationRoutes);
 
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
+
+// Error logging middleware
+app.use(errorLogger);
 
 // Error handler
 app.use((err, req, res, next) => {

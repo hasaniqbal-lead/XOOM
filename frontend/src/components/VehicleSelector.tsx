@@ -11,26 +11,41 @@ interface Vehicle {
   basePrice: string;
 }
 
+// Vehicle order: CAR, AC CAR, RIKSHAW, BIKE, CHINCHI
 const vehicles: Vehicle[] = [
-  { id: "bike", name: "Bike", icon: <Bike className="w-6 h-6" />, capacity: 1, basePrice: "PKR 50" },
-  { id: "rickshaw", name: "Rickshaw", icon: <CircleDot className="w-6 h-6" />, capacity: 3, basePrice: "PKR 80" },
   { id: "car", name: "Car", icon: <Car className="w-6 h-6" />, capacity: 4, basePrice: "PKR 120" },
   { id: "ac-car", name: "AC Car", icon: <Car className="w-6 h-6" />, capacity: 4, basePrice: "PKR 150" },
+  { id: "rickshaw", name: "Rikshaw", icon: <CircleDot className="w-6 h-6" />, capacity: 3, basePrice: "PKR 80" },
+  { id: "bike", name: "Bike", icon: <Bike className="w-6 h-6" />, capacity: 1, basePrice: "PKR 50" },
   { id: "chinchi", name: "Chinchi", icon: <CircleDot className="w-6 h-6" />, capacity: 6, basePrice: "PKR 100" },
 ];
 
 interface VehicleSelectorProps {
   selectedVehicle: string | null;
   onSelectVehicle: (vehicleId: string) => void;
+  passengers: number;
 }
 
-const VehicleSelector = ({ selectedVehicle, onSelectVehicle }: VehicleSelectorProps) => {
+const VehicleSelector = ({ selectedVehicle, onSelectVehicle, passengers }: VehicleSelectorProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftScroll, setShowLeftScroll] = useState(false);
   const [showRightScroll, setShowRightScroll] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+
+  // Filter vehicles based on passenger count - disable those with insufficient capacity
+  const isVehicleAvailable = (vehicle: Vehicle) => vehicle.capacity >= passengers;
+  
+  // Auto-clear selection if current vehicle can't fit passengers
+  useEffect(() => {
+    if (selectedVehicle) {
+      const currentVehicle = vehicles.find(v => v.id === selectedVehicle);
+      if (currentVehicle && !isVehicleAvailable(currentVehicle)) {
+        onSelectVehicle(''); // Clear selection
+      }
+    }
+  }, [passengers, selectedVehicle, onSelectVehicle]);
 
   // Check if content overflows and update scroll indicators
   const checkScroll = () => {
@@ -128,30 +143,37 @@ const VehicleSelector = ({ selectedVehicle, onSelectVehicle }: VehicleSelectorPr
         }}
       >
         <div className="flex gap-3 pb-2 px-1">
-          {vehicles.map((vehicle) => (
-            <Card
-              key={vehicle.id}
-              onClick={() => !isDragging && onSelectVehicle(vehicle.id)}
-              className={cn(
-                "xoom-surface-elevated p-4 cursor-pointer transition-all hover:scale-105 flex-shrink-0 w-32 select-none",
-                selectedVehicle === vehicle.id && "border-primary xoom-glow ring-2 ring-primary/20"
-              )}
-            >
-              <div className="flex flex-col items-center text-center gap-2">
-                <div className={cn(
-                  "p-3 rounded-full bg-secondary transition-colors",
-                  selectedVehicle === vehicle.id && "bg-primary text-primary-foreground"
-                )}>
-                  {vehicle.icon}
+          {vehicles.map((vehicle) => {
+            const available = isVehicleAvailable(vehicle);
+            return (
+              <Card
+                key={vehicle.id}
+                onClick={() => !isDragging && available && onSelectVehicle(vehicle.id)}
+                className={cn(
+                  "xoom-surface-elevated p-4 transition-all flex-shrink-0 w-32 select-none",
+                  available ? "cursor-pointer hover:scale-105" : "opacity-50 cursor-not-allowed",
+                  selectedVehicle === vehicle.id && available && "border-primary xoom-glow ring-2 ring-primary/20"
+                )}
+              >
+                <div className="flex flex-col items-center text-center gap-2">
+                  <div className={cn(
+                    "p-3 rounded-full bg-secondary transition-colors",
+                    selectedVehicle === vehicle.id && available && "bg-primary text-primary-foreground",
+                    !available && "bg-muted"
+                  )}>
+                    {vehicle.icon}
+                  </div>
+                  <div>
+                    <p className={cn("font-semibold text-sm", !available && "text-muted-foreground")}>{vehicle.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {available ? `Up to ${vehicle.capacity}` : `Max ${vehicle.capacity} passengers`}
+                    </p>
+                    <p className={cn("font-bold mt-1 text-sm", available ? "text-primary" : "text-muted-foreground")}>{vehicle.basePrice}+</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-semibold text-sm">{vehicle.name}</p>
-                  <p className="text-xs text-muted-foreground">Up to {vehicle.capacity}</p>
-                  <p className="text-primary font-bold mt-1 text-sm">{vehicle.basePrice}+</p>
-                </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       </div>
 
