@@ -2,22 +2,10 @@ const express = require('express');
 const router = express.Router();
 const mapService = require('../services/MapService');
 const { authMiddleware } = require('../middleware/auth');
-const rateLimit = require('express-rate-limit');
 
-// Rate limiter for public map APIs (by IP, not user)
-// This prevents abuse while keeping maps accessible to non-authenticated users
-const mapLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per 15 minutes per IP
-  message: 'Too many map requests, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false,
-  // Skip validation since we're behind a trusted Nginx proxy
-  validate: false,
-});
-
-// Apply rate limiting to all map routes
-router.use(mapLimiter);
+// TODO: Re-implement rate limiting after routes are working
+// Rate limiting temporarily disabled to fix route registration issue
+// const rateLimit = require('express-rate-limit');
 
 /**
  * Geocode: Convert address to coordinates
