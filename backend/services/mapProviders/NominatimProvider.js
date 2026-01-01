@@ -238,19 +238,10 @@ class NominatimProvider extends BaseMapProvider {
    * Check if provider is available
    */
   async isAvailable() {
-    try {
-      // Test Nominatim
-      const response = await axios.get(`${this.nominatimUrl}/status`, {
-        timeout: 3000,
-        headers: {
-          'User-Agent': this.userAgent,
-        },
-      });
-      return response.status === 200;
-    } catch (error) {
-      console.error('Nominatim availability check failed:', error.message);
-      return false;
-    }
+    // Nominatim is a public service with no API key required
+    // Skip the availability check to avoid network timeouts
+    // The actual API calls will handle errors if the service is down
+    return this.enabled;
   }
 
   /**
