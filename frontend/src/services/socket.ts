@@ -1,6 +1,10 @@
 import { io, Socket } from "socket.io-client";
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+// In production, use current origin (empty string) for Socket.IO
+// In development, use full URL
+const SOCKET_URL = import.meta.env.VITE_API_URL || (
+  import.meta.env.MODE === 'production' ? '' : 'http://localhost:3000'
+);
 
 class SocketService {
   private socket: Socket | null = null;
