@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Simple X icon - perfect for favicon -->
+  <rect width="100" height="100" rx="20" fill="#ffb33f"/>
+  <g transform="translate(20, 25)">
+    <path d="M 2 0 L 23 32 L 2 62 L 15 62 L 26 45 L 30 39 L 43 62 L 56 62 L 35 32 L 57 0 L 44 0 L 32 19 L 29 23 L 24 19 L 17 0 Z" fill="#202020"/>
+  </g>
+</svg>
+
