@@ -27,6 +27,12 @@ try {
   console.log('✓ Maps routes loaded successfully');
   console.log('  Type:', typeof mapsRoutes);
   console.log('  Has stack:', !!mapsRoutes.stack);
+  console.log('  Stack length:', mapsRoutes.stack ? mapsRoutes.stack.length : 0);
+  if (mapsRoutes.stack) {
+    console.log('  Routes:', mapsRoutes.stack.map(r => {
+      return r.route ? `${Object.keys(r.route.methods)} ${r.route.path}` : 'middleware';
+    }));
+  }
 } catch (error) {
   console.error('❌ Error loading maps routes:', error.message);
   console.error(error.stack);
