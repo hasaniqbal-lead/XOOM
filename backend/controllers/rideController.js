@@ -54,6 +54,16 @@ const rideController = {
         }
       }
 
+      // Get request timeout setting for expiry
+      let requestExpiresAt = null;
+      if (!scheduled_for) {
+        const timeoutResult = await pool.query(
+          "SELECT setting_value FROM app_settings WHERE setting_key = 'ride_request_timeout'"
+        );
+        const timeoutSeconds = parseInt(timeoutResult.rows[0]?.setting_value || '120');
+        requestExpiresAt = new Date(Date.now() + timeoutSeconds * 1000);
+      }
+
       // Create ride with request type
       const rideData = {
         rider_id,
@@ -68,10 +78,34 @@ const rideController = {
         request_type,
         target_drivers: target_driver_ids.length > 0 ? target_driver_ids : null,
         status: scheduled_for ? 'scheduled' : 'requested',
-        scheduled_for: scheduled_for || null
+        scheduled_for: scheduled_for || null,
+        request_expires_at: requestExpiresAt,
+        passengers: req.body.passengers || 1
       };
 
       const ride = await Ride.create(rideData);
+
+      // Emit to public driver view (sanitized)
+      if (req.app.get('io') && !scheduled_for) {
+        const io = req.app.get('io');
+        
+        const pickupArea = pickup_address ? pickup_address.split(',').slice(1).join(',').trim() || 'Pickup Area' : 'Pickup Area';
+        const dropArea = drop_address ? drop_address.split(',').slice(1).join(',').trim() || 'Drop Area' : 'Drop Area';
+        
+        io.to('public_driver_view').emit('new_ride_public', {
+          id: ride.id,
+          rider_name_masked: 'R***',
+          pickup_area: pickupArea,
+          drop_area: dropArea,
+          distance_km: ride.distance_km,
+          estimated_fare: ride.estimated_fare,
+          vehicle_type: req.body.vehicle_type || 'car',
+          passengers: req.body.passengers || 1,
+          request_expires_at: requestExpiresAt?.toISOString(),
+          seconds_remaining: requestExpiresAt ? Math.floor((requestExpiresAt - new Date()) / 1000) : 120,
+          created_at: ride.created_at
+        });
+      }
 
       // Don't notify drivers immediately if scheduled
       if (scheduled_for) {

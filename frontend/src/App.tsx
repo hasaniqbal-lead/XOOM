@@ -12,6 +12,7 @@ import Signup from "./pages/Signup";
 import RideHistory from "./pages/RideHistory";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import PublicDriverView from "./components/PublicDriverView";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,6 +37,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
+              <Route path="/driver-requests" element={<PublicDriverView />} />
               <Route
                 path="/history"
                 element={

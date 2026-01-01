@@ -15,18 +15,21 @@ class Ride {
       request_type = 'broadcast',
       target_drivers = null,
       scheduled_for = null,
-      status = 'requested'
+      status = 'requested',
+      request_expires_at = null,
+      passengers = 1
     } = rideData;
 
     const result = await pool.query(
       `INSERT INTO rides (
         rider_id, pickup_lat, pickup_lng, pickup_address,
         drop_lat, drop_lng, drop_address, distance_km, estimated_fare, 
-        status, request_type, target_drivers, scheduled_for
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        status, request_type, target_drivers, scheduled_for, request_expires_at, passengers
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *`,
       [rider_id, pickup_lat, pickup_lng, pickup_address, drop_lat, drop_lng, drop_address, 
-       distance_km, estimated_fare, status, request_type, target_drivers, scheduled_for]
+       distance_km, estimated_fare, status, request_type, target_drivers, scheduled_for, 
+       request_expires_at, passengers]
     );
     return result.rows[0];
   }

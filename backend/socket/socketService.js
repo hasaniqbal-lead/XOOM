@@ -18,7 +18,36 @@ class SocketService {
   }
 
   initialize() {
-    // Authentication middleware
+    // Public namespace for non-authenticated connections
+    const pool = require('../config/database');
+    
+    this.io.of('/public').on('connection', async (socket) => {
+      console.log('Public viewer connected:', socket.id);
+      
+      // Join public driver view room
+      socket.join('public_driver_view');
+      
+      // Send current active requests
+      try {
+        const result = await pool.query('SELECT * FROM public_active_requests LIMIT 50');
+        const timeoutResult = await pool.query(
+          "SELECT setting_value FROM app_settings WHERE setting_key = 'ride_request_timeout'"
+        );
+        
+        socket.emit('active_requests_initial', {
+          requests: result.rows,
+          request_timeout: parseInt(timeoutResult.rows[0]?.setting_value || '120')
+        });
+      } catch (error) {
+        console.error('Error sending initial requests:', error);
+      }
+      
+      socket.on('disconnect', () => {
+        console.log('Public viewer disconnected:', socket.id);
+      });
+    });
+
+    // Authentication middleware for main namespace
     this.io.use((socket, next) => {
       try {
         const token = socket.handshake.auth.token?.replace('Bearer ', '');
