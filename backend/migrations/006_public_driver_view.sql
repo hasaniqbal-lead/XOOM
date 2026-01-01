@@ -15,9 +15,10 @@ VALUES
   ('public_driver_view_enabled', 'true', 'Enable public driver view for non-authenticated users')
 ON CONFLICT (setting_key) DO NOTHING;
 
--- Add request expiry to rides table
+-- Add request expiry and passengers to rides table
 ALTER TABLE rides 
-  ADD COLUMN IF NOT EXISTS request_expires_at TIMESTAMP;
+  ADD COLUMN IF NOT EXISTS request_expires_at TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS passengers INTEGER DEFAULT 1;
 
 -- Update existing requested rides with expiry (2 minutes from created_at)
 UPDATE rides 
