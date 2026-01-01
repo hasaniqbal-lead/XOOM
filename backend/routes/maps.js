@@ -12,6 +12,8 @@ const mapLimiter = rateLimit({
   message: 'Too many map requests, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
+  // Skip validation since we're behind a trusted Nginx proxy
+  validate: false,
 });
 
 // Apply rate limiting to all map routes
