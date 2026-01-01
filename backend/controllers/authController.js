@@ -15,7 +15,24 @@ const authController = {
       // Check if user exists
       const existingUser = await User.findByPhone(phone);
       if (existingUser) {
-        return res.status(409).json({ error: 'Phone already exists' });
+        // If user exists and wants to add a different role, add as secondary
+        if (existingUser.role !== role && !existingUser.secondary_role) {
+          // Verify password first
+          const isValid = await bcrypt.compare(password, existingUser.password_hash);
+          if (!isValid) {
+            return res.status(401).json({ error: 'Invalid password. Enter your existing password to add this role.' });
+          }
+          
+          // Add secondary role
+          const updatedUser = await User.addSecondaryRole(existingUser.id, role);
+          delete updatedUser.password_hash;
+          
+          return res.status(200).json({
+            message: `${role} role added to your account`,
+            user: updatedUser
+          });
+        }
+        return res.status(409).json({ error: 'Phone already registered with this role' });
       }
 
       // Hash password
@@ -58,12 +75,15 @@ const authController = {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      // Generate JWT
+      // Get active role (default to primary role if not set)
+      const activeRole = user.active_role || user.role;
+
+      // Generate JWT with active role
       const token = jwt.sign(
         {
           id: user.id,
           phone: user.phone,
-          role: user.role
+          role: activeRole
         },
         process.env.JWT_SECRET,
         { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
@@ -72,12 +92,75 @@ const authController = {
       // Remove password from response
       delete user.password_hash;
 
+      // Add available roles to response
+      const roles = [user.role];
+      if (user.secondary_role) {
+        roles.push(user.secondary_role);
+      }
+
       res.json({
         token,
-        user
+        user: {
+          ...user,
+          active_role: activeRole,
+          available_roles: roles
+        }
       });
     } catch (error) {
       console.error('Login error:', error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  },
+
+  // Switch between roles (for users with multiple roles)
+  async switchRole(req, res) {
+    try {
+      const userId = req.user.id;
+      const { role } = req.body;
+
+      // Validate role
+      if (!['rider', 'driver'].includes(role)) {
+        return res.status(400).json({ error: 'Invalid role' });
+      }
+
+      // Check if user has this role
+      const hasRole = await User.hasRole(userId, role);
+      if (!hasRole) {
+        return res.status(403).json({ error: 'You do not have this role' });
+      }
+
+      // Update active role
+      const user = await User.switchActiveRole(userId, role);
+      delete user.password_hash;
+
+      // Generate new token with new role
+      const token = jwt.sign(
+        {
+          id: user.id,
+          phone: user.phone,
+          role: role
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      );
+
+      // Get available roles
+      const roles = [user.role];
+      if (user.secondary_role) {
+        roles.push(user.secondary_role);
+      }
+
+      res.json({
+        message: `Switched to ${role} mode`,
+        token,
+        user: {
+          ...user,
+          active_role: role,
+          available_roles: roles
+        }
+      });
+    } catch (error) {
+      console.error('Switch role error:', error);
       res.status(500).json({ error: 'Server error' });
     }
   }

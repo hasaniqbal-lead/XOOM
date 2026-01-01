@@ -28,12 +28,14 @@ const Index = () => {
   const [guestData, setGuestData] = useState<{ name: string; contact: string } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [driverStats, setDriverStats] = useState<{ total_rides: number; earnings_today: number } | null>(null);
-  const { user, logout } = useAuth();
+  const { user, logout, switchRole, hasDualRoles, activeRole } = useAuth();
 
   // Fetch driver stats when user is a driver
   useEffect(() => {
     const fetchDriverStats = async () => {
-      if (user && user.role === 'driver') {
+      // Use activeRole for dual-role users, fallback to role
+      const effectiveRole = user?.active_role || user?.role;
+      if (user && effectiveRole === 'driver') {
         try {
           const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/driver/stats`, {
             headers: {
@@ -146,6 +148,38 @@ const Index = () => {
                     {/* Show user options when logged in */}
                     {user && (
                       <>
+                        {/* Role Switcher for Dual Role Users */}
+                        {hasDualRoles && (
+                          <div className="p-3 mb-2 bg-secondary/30 rounded-lg">
+                            <p className="text-xs text-muted-foreground mb-2">Active Mode</p>
+                            <div className="flex gap-2">
+                              <Button
+                                variant={activeRole === "rider" ? "default" : "outline"}
+                                size="sm"
+                                className={`flex-1 ${activeRole === "rider" ? "xoom-gradient" : ""}`}
+                                onClick={async () => {
+                                  if (activeRole !== "rider") {
+                                    await switchRole("rider");
+                                  }
+                                }}
+                              >
+                                🚗 Rider
+                              </Button>
+                              <Button
+                                variant={activeRole === "driver" ? "default" : "outline"}
+                                size="sm"
+                                className={`flex-1 ${activeRole === "driver" ? "xoom-gradient" : ""}`}
+                                onClick={async () => {
+                                  if (activeRole !== "driver") {
+                                    await switchRole("driver");
+                                  }
+                                }}
+                              >
+                                🏍️ Driver
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                         <Button
                           variant="outline"
                           className="w-full justify-start"
@@ -202,7 +236,7 @@ const Index = () => {
                     )}
 
                     {/* Driver Stats */}
-                    {mode === "driver" && user && user.role === "driver" && (
+                    {mode === "driver" && user && (user.active_role || user.role) === "driver" && (
                       <div className="pt-4 border-t border-border space-y-2">
                         <h3 className="font-semibold text-sm text-muted-foreground">Driver Stats</h3>
                         <div className="space-y-2">

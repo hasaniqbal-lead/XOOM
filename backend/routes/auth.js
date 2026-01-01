@@ -1,6 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const { validate } = require('../middleware/validation');
+const { authMiddleware } = require('../middleware/auth');
 const authController = require('../controllers/authController');
 
 const router = express.Router();
@@ -27,6 +28,17 @@ router.post(
     validate
   ],
   authController.login
+);
+
+// Switch role (for users with multiple roles)
+router.post(
+  '/switch-role',
+  authMiddleware,
+  [
+    body('role').isIn(['rider', 'driver']),
+    validate
+  ],
+  authController.switchRole
 );
 
 module.exports = router;

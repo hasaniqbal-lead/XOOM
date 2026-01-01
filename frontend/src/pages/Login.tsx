@@ -17,6 +17,17 @@ const Login = () => {
     password: "",
   });
 
+  // Format phone number to Pakistani format (+92...)
+  const formatPhoneNumber = (phone: string): string => {
+    let formatted = phone.replace(/\D/g, ''); // Remove non-digits
+    if (formatted.startsWith('0')) {
+      formatted = '92' + formatted.substring(1);
+    } else if (!formatted.startsWith('92')) {
+      formatted = '92' + formatted;
+    }
+    return '+' + formatted;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -27,7 +38,9 @@ const Login = () => {
 
     try {
       setLoading(true);
-      await login(formData.phone, formData.password);
+      // Format phone number before sending to API
+      const formattedPhone = formatPhoneNumber(formData.phone);
+      await login(formattedPhone, formData.password);
       navigate("/"); // Redirect to home after successful login
     } catch (error) {
       // Error already handled in AuthContext
@@ -55,7 +68,7 @@ const Login = () => {
             <Input
               id="phone"
               type="tel"
-              placeholder="+923001234567"
+              placeholder="03XX XXXXXXX or +92..."
               value={formData.phone}
               onChange={(e) =>
                 setFormData({ ...formData, phone: e.target.value })
@@ -63,6 +76,9 @@ const Login = () => {
               required
               disabled={loading}
             />
+            <p className="text-xs text-muted-foreground">
+              Enter your phone number (e.g., 03001234567)
+            </p>
           </div>
 
           <div className="space-y-2">

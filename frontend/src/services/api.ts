@@ -48,6 +48,7 @@ export const authAPI = {
   login: (data: { phone: string; password: string }) =>
     api.post("/auth/login", data),
   getProfile: () => api.get("/auth/profile"),
+  switchRole: (role: string) => api.post("/auth/switch-role", { role }),
 };
 
 // Rides API
