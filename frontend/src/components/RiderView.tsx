@@ -7,6 +7,8 @@ import AddressSearch from "./AddressSearch";
 import VehicleSelector from "./VehicleSelector";
 import PassengerCounter from "./PassengerCounter";
 import Map from "./Map";
+import LocationActionBar from "./LocationActionBar";
+import LocationChoiceDialog from "./LocationChoiceDialog";
 import { ridesAPI } from "@/services/api";
 import { useSocket } from "@/contexts/SocketContext";
 import { toast } from "sonner";
@@ -37,7 +39,11 @@ const RiderView = () => {
     work: SavedLocation | null;
     recent: SavedLocation[];
   }>({ home: null, work: null, recent: [] });
-  const [showLocationOptions, setShowLocationOptions] = useState<'pickup' | 'drop' | null>(null);
+  const [showLocationChoice, setShowLocationChoice] = useState(false);
+  const [pendingLocation, setPendingLocation] = useState<{
+    coords: [number, number];
+    address: string;
+  } | null>(null);
 
   const { socket } = useSocket();
 
@@ -257,7 +263,7 @@ const RiderView = () => {
   // Use current GPS location
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser");
+      toast.error("Geolocation is not supported");
       return;
     }
 
@@ -270,27 +276,26 @@ const RiderView = () => {
         try {
           const result = await geocodingService.reverseGeocode(latitude, longitude);
           
-          if (showLocationOptions === 'pickup') {
-            setPickupLocation(result.display_name);
-            setPickupCoords([latitude, longitude]);
-          } else {
-            setDropLocation(result.display_name);
-            setDropCoords([latitude, longitude]);
-          }
-          
+          // Center map at current location
           setCurrentLocation([latitude, longitude]);
-          toast.success("Current location set");
+          
+          // Store pending location and show choice dialog
+          setPendingLocation({
+            coords: [latitude, longitude],
+            address: result.display_name
+          });
+          setShowLocationChoice(true);
+          
+          toast.success("Location found");
         } catch (error) {
           toast.error("Could not get address");
         } finally {
           setIsUsingCurrentLocation(false);
-          setShowLocationOptions(null);
         }
       },
       (error) => {
         toast.error("Could not get your location");
         setIsUsingCurrentLocation(false);
-        setShowLocationOptions(null);
       }
     );
   };
@@ -304,7 +309,28 @@ const RiderView = () => {
       setDropLocation(location.address);
       setDropCoords([location.lat, location.lng]);
     }
-    setShowLocationOptions(null);
+  };
+
+  // Handle location choice for pickup
+  const handleLocationPickupChoice = () => {
+    if (pendingLocation) {
+      setPickupLocation(pendingLocation.address);
+      setPickupCoords(pendingLocation.coords);
+      toast.success("Pickup location set");
+    }
+    setShowLocationChoice(false);
+    setPendingLocation(null);
+  };
+
+  // Handle location choice for drop-off
+  const handleLocationDropChoice = () => {
+    if (pendingLocation) {
+      setDropLocation(pendingLocation.address);
+      setDropCoords(pendingLocation.coords);
+      toast.success("Drop-off location set");
+    }
+    setShowLocationChoice(false);
+    setPendingLocation(null);
   };
 
   // Prepare markers for the map
@@ -353,55 +379,23 @@ const RiderView = () => {
           onMapClick={handleMapClick}
           onMarkerDrag={handleMarkerDrag}
         />
-
-        {/* Top Bar */}
-        <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-background/80 to-transparent z-[100]">
-          <div className="flex gap-2">
-            <Button
-              variant={showSchedule ? "default" : "secondary"}
-              size="sm"
-              onClick={() => setShowSchedule(!showSchedule)}
-              className="flex items-center gap-2"
-            >
-              <Clock className="w-4 h-4" />
-              Schedule
-            </Button>
-            <Button
-              variant={showShared ? "default" : "secondary"}
-              size="sm"
-              onClick={() => setShowShared(!showShared)}
-              className="flex items-center gap-2"
-            >
-              <Share2 className="w-4 h-4" />
-              Shared Ride
-            </Button>
-          </div>
-        </div>
       </div>
+
+      {/* Location Action Bar */}
+      <LocationActionBar
+        onCurrentLocation={handleUseCurrentLocation}
+        onSchedule={() => setShowSchedule(!showSchedule)}
+        onShareRide={() => setShowShared(!showShared)}
+        showSchedule={showSchedule}
+        showShared={showShared}
+        isLoadingLocation={isUsingCurrentLocation}
+      />
 
       {/* Booking Panel */}
       <div className="animate-slide-up">
         <div className="px-4 py-6 space-y-4">
           {/* Quick Location Actions */}
           <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-hide">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setShowLocationOptions('pickup');
-                handleUseCurrentLocation();
-              }}
-              disabled={isUsingCurrentLocation}
-              className="flex items-center gap-2 whitespace-nowrap"
-            >
-              {isUsingCurrentLocation ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Target className="w-4 h-4" />
-              )}
-              Current Location
-            </Button>
-            
             {savedLocations.home && (
               <Button
                 variant="outline"
@@ -503,6 +497,16 @@ const RiderView = () => {
           </Button>
         </div>
       </div>
+
+      {/* Location Choice Dialog */}
+      <LocationChoiceDialog
+        open={showLocationChoice}
+        onOpenChange={setShowLocationChoice}
+        address={pendingLocation?.address || ""}
+        coordinates={pendingLocation?.coords || [0, 0]}
+        onSelectPickup={handleLocationPickupChoice}
+        onSelectDrop={handleLocationDropChoice}
+      />
     </div>
   );
 };
