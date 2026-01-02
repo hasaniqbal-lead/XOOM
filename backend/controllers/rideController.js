@@ -30,6 +30,22 @@ const rideController = {
             limit: limitResult.rows[0].daily_limit
           });
         }
+
+        // Check for existing active ride (one active ride per user)
+        const activeRideResult = await pool.query(
+          `SELECT id FROM rides 
+           WHERE rider_id = $1 
+           AND status IN ('requested', 'assigned', 'accepted', 'arrived', 'on_trip')
+           LIMIT 1`,
+          [rider_id]
+        );
+
+        if (activeRideResult.rows.length > 0) {
+          return res.status(409).json({
+            error: 'You already have an active ride request',
+            active_ride_id: activeRideResult.rows[0].id
+          });
+        }
       }
 
       // Calculate distance (simple Haversine formula)
@@ -86,6 +102,7 @@ const rideController = {
         scheduled_for: scheduled_for || null,
         request_expires_at: requestExpiresAt,
         passengers: req.body.passengers || 1,
+        vehicle_type: req.body.vehicle_type || 'car',
         guest_name: is_guest ? guest_name : null,
         guest_contact: is_guest ? guest_contact : null
       };
@@ -230,6 +247,22 @@ const rideController = {
 
       if (!driverCheck.rows[0]?.is_verified || !driverCheck.rows[0]?.monthly_fee_paid) {
         return res.status(403).json({ error: 'Driver not verified or subscription expired' });
+      }
+
+      // Check if driver already has an active ride
+      const activeRideCheck = await pool.query(
+        `SELECT id FROM rides 
+         WHERE driver_id = $1 
+         AND status IN ('assigned', 'accepted', 'arrived', 'on_trip')
+         LIMIT 1`,
+        [driver_id]
+      );
+
+      if (activeRideCheck.rows.length > 0) {
+        return res.status(409).json({
+          error: 'You already have an active ride. Complete it before accepting another.',
+          active_ride_id: activeRideCheck.rows[0].id
+        });
       }
 
       // Atomic assignment
@@ -416,6 +449,46 @@ const rideController = {
       res.json(rides);
     } catch (error) {
       console.error('Get ride history error:', error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  },
+
+  // Get active ride for current user (rider or driver)
+  async getActiveRide(req, res) {
+    try {
+      const userId = req.user.id;
+      const role = req.user.role;
+
+      let query;
+      if (role === 'driver') {
+        // Driver: get ride they've accepted
+        query = `
+          SELECT * FROM rides 
+          WHERE driver_id = $1 
+          AND status IN ('accepted', 'arrived', 'on_trip')
+          ORDER BY updated_at DESC 
+          LIMIT 1
+        `;
+      } else {
+        // Rider: get their active request
+        query = `
+          SELECT * FROM rides 
+          WHERE rider_id = $1 
+          AND status IN ('requested', 'assigned', 'accepted', 'arrived', 'on_trip')
+          ORDER BY created_at DESC 
+          LIMIT 1
+        `;
+      }
+
+      const result = await pool.query(query, [userId]);
+      
+      if (result.rows.length === 0) {
+        return res.json({ active_ride: null });
+      }
+
+      res.json({ active_ride: result.rows[0] });
+    } catch (error) {
+      console.error('Get active ride error:', error);
       res.status(500).json({ error: 'Server error' });
     }
   }

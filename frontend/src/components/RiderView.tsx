@@ -9,11 +9,23 @@ import PassengerCounter from "./PassengerCounter";
 import Map from "./Map";
 import LocationActionBar from "./LocationActionBar";
 import LocationChoiceDialog from "./LocationChoiceDialog";
-import { ridesAPI } from "@/services/api";
+import RideRequestProgress from "./RideRequestProgress";
+import { ridesAPI, locationsAPI } from "@/services/api";
 import { useSocket } from "@/contexts/SocketContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { geocodingService } from "@/services/geocoding";
 import { locationHistoryService, SavedLocation } from "@/services/locationHistory";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface RiderViewProps {
   guestData?: { name: string; contact: string } | null;
@@ -53,7 +65,29 @@ const RiderView = ({ guestData }: RiderViewProps) => {
     address: string;
   } | null>(null);
 
+  // Save location dialog state
+  const [showSaveLocationDialog, setShowSaveLocationDialog] = useState(false);
+  const [saveLocationLabel, setSaveLocationLabel] = useState("");
+  const [locationToSave, setLocationToSave] = useState<{
+    address: string;
+    lat: number;
+    lng: number;
+  } | null>(null);
+
+  // Active ride request state
+  const [activeRide, setActiveRide] = useState<{
+    id: number;
+    pickup_address: string;
+    drop_address: string;
+    vehicle_type: string;
+    passengers: number;
+    estimated_fare: number;
+    created_at: string;
+    status: string;
+  } | null>(null);
+
   const { socket } = useSocket();
+  const { user } = useAuth();
 
   // Get user's current location
   useEffect(() => {
@@ -213,15 +247,59 @@ const RiderView = ({ guestData }: RiderViewProps) => {
       const response = await ridesAPI.createRide(rideData);
       const ride = response.data;
 
+      // Set active ride to show progress indicator
+      setActiveRide({
+        id: ride.id,
+        pickup_address: pickupLocation,
+        drop_address: dropLocation,
+        vehicle_type: selectedVehicle,
+        passengers: passengers,
+        estimated_fare: ride.estimated_fare || estimatedFare || 0,
+        created_at: ride.created_at || new Date().toISOString(),
+        status: ride.status || 'requested'
+      });
+
       toast.success("Ride requested! Looking for drivers...");
 
       // Emit real-time event
       socket?.emit("request_ride", ride);
-    } catch (error) {
-      toast.error("Failed to request ride. Please try again.");
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.error || "Failed to request ride. Please try again.";
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Cancel active ride request
+  const handleCancelRide = async () => {
+    if (!activeRide) return;
+
+    try {
+      setLoading(true);
+      await ridesAPI.cancelRide(activeRide.id);
+      setActiveRide(null);
+      toast.success("Ride request cancelled");
+    } catch (error) {
+      toast.error("Failed to cancel ride");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Edit ride request (clear and start over)
+  const handleEditRide = async () => {
+    if (activeRide) {
+      try {
+        await ridesAPI.cancelRide(activeRide.id);
+      } catch (error) {
+        // Ignore cancel errors
+      }
+    }
+    setActiveRide(null);
+    // Keep locations but unlock them for editing
+    setPickupLocked(false);
+    setDropLocked(false);
   };
 
   // Clear pickup location
@@ -277,12 +355,45 @@ const RiderView = ({ guestData }: RiderViewProps) => {
           });
         }
       } else {
-        toast.info("Both locations are locked. Clear one to change it.");
+        // Both locations locked - offer to save this location for logged-in users
+        if (user) {
+          setLocationToSave({
+            address: result.display_name,
+            lat: latlng.lat,
+            lng: latlng.lng
+          });
+          setShowSaveLocationDialog(true);
+        } else {
+          toast.info("Both locations are locked. Clear one to change it.");
+        }
       }
     } catch (error) {
       toast.error("Could not get address for this location");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle save location to favorites
+  const handleSaveLocation = async () => {
+    if (!locationToSave || !saveLocationLabel.trim()) {
+      toast.error("Please enter a label for this location");
+      return;
+    }
+
+    try {
+      await locationsAPI.saveLocation({
+        label: saveLocationLabel.trim(),
+        address: locationToSave.address,
+        lat: locationToSave.lat,
+        lng: locationToSave.lng
+      });
+      toast.success(`Location saved as "${saveLocationLabel}"`);
+      setShowSaveLocationDialog(false);
+      setSaveLocationLabel("");
+      setLocationToSave(null);
+    } catch (error) {
+      toast.error("Failed to save location");
     }
   };
 
@@ -453,6 +564,16 @@ const RiderView = ({ guestData }: RiderViewProps) => {
       {/* Booking Panel */}
       <div className="animate-slide-up">
         <div className="px-4 py-6 space-y-4">
+          {/* Show Active Ride Progress or Booking Form */}
+          {activeRide ? (
+            <RideRequestProgress
+              ride={activeRide}
+              timeoutSeconds={300}
+              onCancel={handleCancelRide}
+              onEdit={handleEditRide}
+            />
+          ) : (
+            <>
           {/* Quick Location Actions */}
           <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-hide">
             {savedLocations.home && (
@@ -599,6 +720,8 @@ const RiderView = ({ guestData }: RiderViewProps) => {
               "Request a XOOM"
             )}
           </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -611,6 +734,57 @@ const RiderView = ({ guestData }: RiderViewProps) => {
         onSelectPickup={handleLocationPickupChoice}
         onSelectDrop={handleLocationDropChoice}
       />
+
+      {/* Save Location Dialog */}
+      <Dialog open={showSaveLocationDialog} onOpenChange={setShowSaveLocationDialog}>
+        <DialogContent className="xoom-surface-elevated">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-primary" />
+              Save Location
+            </DialogTitle>
+            <DialogDescription>
+              Save this location for quick access later
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4">
+            <div className="p-3 bg-secondary/30 rounded-lg">
+              <p className="text-sm">{locationToSave?.address}</p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="location-label">Label</Label>
+              <Input
+                id="location-label"
+                placeholder="e.g., Home, Work, Gym, Friend's House"
+                value={saveLocationLabel}
+                onChange={(e) => setSaveLocationLabel(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowSaveLocationDialog(false);
+                setSaveLocationLabel("");
+                setLocationToSave(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveLocation}
+              className="xoom-gradient"
+              disabled={!saveLocationLabel.trim()}
+            >
+              Save Location
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

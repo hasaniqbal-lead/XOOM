@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, User, Phone, Star, LogOut, History, Edit2 } from "lucide-react";
+import { ArrowLeft, User, Phone, Star, LogOut, History, Edit2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import SavedLocationsManager from "@/components/SavedLocationsManager";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -164,6 +165,17 @@ const Profile = () => {
             )}
           </div>
         </Card>
+
+        {/* Saved Locations - Only for riders */}
+        {(user.role === "rider" || user.secondary_role === "rider") && (
+          <Card className="xoom-surface-elevated p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <MapPin className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold">Saved Locations</h3>
+            </div>
+            <SavedLocationsManager />
+          </Card>
+        )}
 
         {/* Account Actions */}
         <Card className="xoom-surface-elevated p-4">

@@ -196,6 +196,17 @@ const Index = () => {
                           className="w-full justify-start"
                           onClick={() => {
                             setMenuOpen(false);
+                            navigate("/profile#saved-locations");
+                          }}
+                        >
+                          <MapPin className="w-4 h-4 mr-2" />
+                          Saved Locations
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            setMenuOpen(false);
                             navigate("/history");
                           }}
                         >

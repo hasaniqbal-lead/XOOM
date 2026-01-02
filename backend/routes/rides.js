@@ -87,4 +87,11 @@ router.get(
   rideController.getRideHistory
 );
 
+// Get active ride for current user (rider or driver)
+router.get(
+  '/active/me',
+  authMiddleware,
+  rideController.getActiveRide
+);
+
 module.exports = router;
