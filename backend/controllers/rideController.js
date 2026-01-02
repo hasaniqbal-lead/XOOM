@@ -55,7 +55,13 @@ const rideController = {
       const fareResult = await pool.query(
         'SELECT * FROM fare_settings WHERE active = true ORDER BY id DESC LIMIT 1'
       );
-      const fareSettings = fareResult.rows[0] || { base_fare: 50, per_km: 15, minimum_fare: 80 };
+      const rawFare = fareResult.rows[0] || { base_fare: 50, per_km: 15, minimum_fare: 80 };
+      // Parse values to ensure they're numbers (DB might return strings)
+      const fareSettings = {
+        base_fare: parseFloat(rawFare.base_fare) || 50,
+        per_km: parseFloat(rawFare.per_km) || 15,
+        minimum_fare: parseFloat(rawFare.minimum_fare) || 80
+      };
 
       let estimated_fare = fareSettings.base_fare + (distance_km * fareSettings.per_km);
       estimated_fare = Math.max(estimated_fare, fareSettings.minimum_fare);

@@ -112,6 +112,47 @@ const RiderView = ({ guestData }: RiderViewProps) => {
     });
   }, []);
 
+  // Fetch active ride on mount (in case user refreshes)
+  useEffect(() => {
+    const fetchActiveRide = async () => {
+      if (!user) return; // Only for logged-in users
+      
+      try {
+        const response = await ridesAPI.getActiveRide();
+        if (response.data.active_ride) {
+          const ride = response.data.active_ride;
+          setActiveRide({
+            id: ride.id,
+            pickup_address: ride.pickup_address || "Pickup Location",
+            drop_address: ride.drop_address || "Drop Location",
+            vehicle_type: ride.vehicle_type || "car",
+            passengers: ride.passengers || 1,
+            estimated_fare: ride.estimated_fare || 0,
+            created_at: ride.created_at,
+            status: ride.status
+          });
+          // Also restore locations on map
+          if (ride.pickup_lat && ride.pickup_lng) {
+            setPickupCoords([ride.pickup_lat, ride.pickup_lng]);
+            setPickupLocation(ride.pickup_address || "");
+            setPickupLocked(true);
+          }
+          if (ride.drop_lat && ride.drop_lng) {
+            setDropCoords([ride.drop_lat, ride.drop_lng]);
+            setDropLocation(ride.drop_address || "");
+            setDropLocked(true);
+          }
+          setSelectedVehicle(ride.vehicle_type || "car");
+          setPassengers(ride.passengers || 1);
+        }
+      } catch (error) {
+        console.log("No active ride");
+      }
+    };
+
+    fetchActiveRide();
+  }, [user]);
+
   // Fetch route and calculate fare when pickup and drop locations are set
   useEffect(() => {
     if (pickupCoords && dropCoords) {
@@ -167,26 +208,44 @@ const RiderView = ({ guestData }: RiderViewProps) => {
     if (!socket) return;
 
     socket.on("ride_assigned", (...args: unknown[]) => {
-      const data = args[0] as { driver: { name: string } };
+      const data = args[0] as { driver: { name: string }; ride?: { status: string } };
       toast.success(`Driver ${data.driver.name} is on the way!`);
+      // Update active ride status
+      if (activeRide) {
+        setActiveRide({ ...activeRide, status: data.ride?.status || 'assigned' });
+      }
     });
 
     socket.on("driver_accepted", () => {
       toast.info("Driver accepted your ride!");
+      if (activeRide) {
+        setActiveRide({ ...activeRide, status: 'accepted' });
+      }
     });
 
     socket.on("ride_started", () => {
       toast.info("Your ride has started!");
+      if (activeRide) {
+        setActiveRide({ ...activeRide, status: 'on_trip' });
+      }
     });
 
     socket.on("ride_completed", () => {
       toast.success("Ride completed!");
-      // Reset form
+      // Clear active ride and reset form
+      setActiveRide(null);
       setPickupCoords(null);
       setDropCoords(null);
       setPickupLocation("");
       setDropLocation("");
+      setPickupLocked(false);
+      setDropLocked(false);
       setSelectedVehicle(null);
+    });
+
+    socket.on("ride_cancelled", () => {
+      toast.info("Ride was cancelled");
+      setActiveRide(null);
     });
 
     return () => {
@@ -194,8 +253,9 @@ const RiderView = ({ guestData }: RiderViewProps) => {
       socket.off("driver_accepted");
       socket.off("ride_started");
       socket.off("ride_completed");
+      socket.off("ride_cancelled");
     };
-  }, [socket]);
+  }, [socket, activeRide]);
 
   // Haversine formula for distance calculation
   const calculateDistance = (

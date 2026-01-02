@@ -60,13 +60,18 @@ export const ridesAPI = {
     drop_lng: number;
     passengers: number;
     vehicle_type?: string;
+    pickup_address?: string;
+    drop_address?: string;
+    guest_name?: string;
+    guest_contact?: string;
   }) => api.post("/rides", data),
   getRides: (params?: { status?: string }) => api.get("/rides", { params }),
   getRideById: (id: string) => api.get(`/rides/${id}`),
+  getActiveRide: () => api.get("/rides/active/me"),
   acceptRide: (id: string) => api.post(`/rides/${id}/accept`),
   startRide: (id: string) => api.post(`/rides/${id}/start`),
   completeRide: (id: string) => api.post(`/rides/${id}/complete`),
-  cancelRide: (id: string) => api.post(`/rides/${id}/cancel`),
+  cancelRide: (id: number | string) => api.post(`/rides/${id}/cancel`),
 };
 
 // Driver API
